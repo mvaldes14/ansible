@@ -10,10 +10,15 @@
         ansible.builtin.apt:
             update_cache: true
             cache_valid_time: 3600
-      - name: Cordon Nodes
+      - name: Drain Nodes
         kubernetes.core.k8s_drain:
             name: "{{ inventory_hostname }}"
-            state: cordon
+            state: drain
+            delete_options:
+                delete_emptydir_data: true
+                ignore_daemonsets: true
+                force: true
+                wait_timeout: 120
         delegate_to: localhost
         vars:
             ansible_python_interpreter: "{{ ansible_playbook_python }}"
