@@ -2,35 +2,8 @@
   hosts: all
   gather_facts: true
   vars:
-    otel_version: "0.139.0"
-    agent_endpoint: "otel.local.net"
-    agent_port: 80
     username: "mvaldes"
   tasks:
-    # =========================================================================
-    # Structure Tests (structure.yml)
-    # =========================================================================
-    - name: Verify Structure
-      tags:
-        - structure
-      block:
-        - name: Get Architecture Mapping
-          ansible.builtin.set_fact:
-            expected_arch: "{{ arch_map[ansible_architecture] | default('amd64') }}"
-          vars:
-            arch_map:
-              x86_64: amd64
-              aarch64: arm64
-              armv7l: arm
-
-        - name: Assert Architecture Is Detected
-          ansible.builtin.assert:
-            that:
-              - ansible_architecture is defined
-              - expected_arch in ['amd64', 'arm64', 'arm']
-            fail_msg: "Architecture detection failed"
-            success_msg: "Architecture detected: {{ ansible_architecture }} -> {{ expected_arch }}"
-
     # =========================================================================
     # SSH Access Tests (access.yml)
     # =========================================================================
@@ -99,15 +72,12 @@
             src: /etc/sudoers.d/sudoers-nopasswd
           register: sudoers_content
 
-        - name: Assert Sudoers Contains Expected Commands
+        - name: Assert Sudoers Grants Passwordless Sudo
           ansible.builtin.assert:
             that:
-              - "'/usr/bin/systemctl restart ssh' in sudoers_content.content | b64decode"
-              - "'/usr/bin/apt update' in sudoers_content.content | b64decode"
-              - "'/usr/bin/apt upgrade' in sudoers_content.content | b64decode"
-              - "'NOPASSWD' in sudoers_content.content | b64decode"
-            fail_msg: "Sudoers file missing expected commands"
-            success_msg: "Sudoers file contains all expected commands"
+              - "username + ' ALL=NOPASSWD: ALL' in sudoers_content.content | b64decode"
+            fail_msg: "Sudoers file does not grant passwordless sudo to {{ username }}"
+            success_msg: "Sudoers file grants passwordless sudo to {{ username }}"
 
         - name: Check SSH Service Is Running
           ansible.builtin.systemd:
@@ -120,160 +90,6 @@
               - ssh_service.status.ActiveState == "active"
             fail_msg: "SSH service is not running"
             success_msg: "SSH service is running"
-
-    # =========================================================================
-    # OTEL Agent Tests (otel.yml)
-    # =========================================================================
-    - name: Verify OTEL Agent
-      tags:
-        - otel
-      block:
-        - name: Check Otel User Exists
-          ansible.builtin.getent:
-            database: passwd
-            key: otel
-          register: otel_user
-
-        - name: Assert Otel User Created
-          ansible.builtin.assert:
-            that:
-              - otel_user is success
-            fail_msg: "Otel user was not created"
-            success_msg: "Otel user exists"
-
-        - name: Get Otel User Details
-          ansible.builtin.shell: |
-            getent passwd otel | cut -d: -f7
-          register: otel_shell
-          changed_when: false
-
-        - name: Assert Otel User Is System User
-          ansible.builtin.assert:
-            that:
-              - "otel_shell.stdout in ['/usr/sbin/nologin', '/bin/false', '/sbin/nologin']"
-            fail_msg: "Otel user should be a system user with no login shell"
-            success_msg: "Otel user is properly configured as system user"
-
-        - name: Check Otel Agent Binary Exists
-          ansible.builtin.stat:
-            path: /usr/local/bin/otelcol-contrib
-          register: otel_binary
-
-        - name: Assert Otel Agent Binary Exists And Is Executable
-          ansible.builtin.assert:
-            that:
-              - otel_binary.stat.exists
-              - otel_binary.stat.executable
-              - otel_binary.stat.mode == "0755"
-            fail_msg: "Otel agent binary does not exist or has wrong permissions"
-            success_msg: "Otel agent binary exists and is executable"
-
-        - name: Check Otel Agent Version
-          ansible.builtin.command: /usr/local/bin/otelcol-contrib --version
-          register: otel_version_output
-          changed_when: false
-
-        - name: Assert Otel Agent Version
-          ansible.builtin.assert:
-            that:
-              - "otel_version in otel_version_output.stdout"
-            fail_msg: "Otel agent version mismatch. Expected {{ otel_version }}"
-            success_msg: "Otel agent version {{ otel_version }} is installed"
-
-        - name: Check Otel Config Directory Exists
-          ansible.builtin.stat:
-            path: /opt/otel-agent
-          register: otel_config_dir
-
-        - name: Assert Otel Config Directory Exists With Correct Ownership
-          ansible.builtin.assert:
-            that:
-              - otel_config_dir.stat.exists
-              - otel_config_dir.stat.isdir
-              - otel_config_dir.stat.mode == "0755"
-              - otel_config_dir.stat.pw_name == "otel"
-              - otel_config_dir.stat.gr_name == "otel"
-            fail_msg: "Otel config directory does not exist or has wrong ownership"
-            success_msg: "Otel config directory exists with correct ownership"
-
-        - name: Check Otel Config File Exists
-          ansible.builtin.stat:
-            path: /opt/otel-agent/otel-config.yaml
-          register: otel_config_file
-
-        - name: Assert Otel Config File Exists With Correct Ownership
-          ansible.builtin.assert:
-            that:
-              - otel_config_file.stat.exists
-              - otel_config_file.stat.mode == "0644"
-              - otel_config_file.stat.pw_name == "otel"
-              - otel_config_file.stat.gr_name == "otel"
-            fail_msg: "Otel config file does not exist or has wrong ownership"
-            success_msg: "Otel config file exists with correct ownership"
-
-        - name: Read Otel Config Content
-          ansible.builtin.slurp:
-            src: /opt/otel-agent/otel-config.yaml
-          register: otel_config_content
-
-        - name: Assert Otel Config Contains Expected Settings
-          ansible.builtin.assert:
-            that:
-              - "'hostmetrics' in otel_config_content.content | b64decode"
-              - "'filelog' in otel_config_content.content | b64decode"
-              - "'otlphttp' in otel_config_content.content | b64decode"
-              - "agent_endpoint in otel_config_content.content | b64decode"
-              - "agent_port | string in otel_config_content.content | b64decode"
-            fail_msg: "Otel config missing expected settings"
-            success_msg: "Otel config contains all expected settings"
-
-        - name: Check Otel Systemd Service File Exists
-          ansible.builtin.stat:
-            path: /etc/systemd/system/otel-agent.service
-          register: otel_service_file
-
-        - name: Assert Otel Systemd Service File Exists
-          ansible.builtin.assert:
-            that:
-              - otel_service_file.stat.exists
-              - otel_service_file.stat.mode == "0644"
-            fail_msg: "Otel systemd service file does not exist"
-            success_msg: "Otel systemd service file exists"
-
-        - name: Read Otel Service File Content
-          ansible.builtin.slurp:
-            src: /etc/systemd/system/otel-agent.service
-          register: otel_service_content
-
-        - name: Assert Otel Service File Contains Expected Settings
-          ansible.builtin.assert:
-            that:
-              - "'User=otel' in otel_service_content.content | b64decode"
-              - "'Group=root' in otel_service_content.content | b64decode"
-              - "'Restart=always' in otel_service_content.content | b64decode"
-              - "'/usr/local/bin/otelcol-contrib' in otel_service_content.content | b64decode"
-              - "'/opt/otel-agent/otel-config.yaml' in otel_service_content.content | b64decode"
-            fail_msg: "Otel service file missing expected settings"
-            success_msg: "Otel service file contains all expected settings"
-
-        - name: Check Otel Service Is Enabled And Running
-          ansible.builtin.systemd:
-            name: otel-agent
-          register: otel_service_status
-
-        - name: Assert Otel Service Is Enabled
-          ansible.builtin.assert:
-            that:
-              - otel_service_status.status.UnitFileState == "enabled"
-            fail_msg: "Otel service is not enabled"
-            success_msg: "Otel service is enabled"
-
-        - name: Assert Otel Service Is Running
-          ansible.builtin.assert:
-            that:
-              - otel_service_status.status.ActiveState == "active"
-            fail_msg: "Otel service is not running"
-            success_msg: "Otel service is running"
 
     # =========================================================================
     # MOTD Tests (motd.yml)
@@ -380,8 +196,6 @@
             path: "{{ item }}"
           loop:
             - /etc/ssh/sshd_config
-            - /opt/otel-agent/otel-config.yaml
-            - /etc/systemd/system/otel-agent.service
             - /etc/update-motd.d/00-homelab
           register: config_files_stat
 

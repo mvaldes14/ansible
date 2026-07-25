@@ -5,9 +5,5 @@ ansible_user: mvaldes
 username: mvaldes
 username_home: "/home/{{ username }}"
 
-# Node architecture (amd64, arm64)
-node_arch: amd64
-
 # Service toggles
 pihole_enabled: false
-otel_enabled: false

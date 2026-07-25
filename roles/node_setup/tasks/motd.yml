@@ -25,10 +25,3 @@
         regexp: '^session.*pam_motd.so'
         line: 'session    optional     pam_motd.so motd=/run/motd.dynamic'
         state: present
-    - name: Enable PrintMotd in SSHD
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^PrintMotd'
-        line: 'PrintMotd no'
-        state: present
-      notify: RestartSSH

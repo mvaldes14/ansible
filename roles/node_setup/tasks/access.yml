@@ -1,15 +1,14 @@
 - name: Setup SSH Things
+  become: true
   block:
-    - name: Commands Without Sudo
+    - name: Configure Passwordless Sudo
       community.general.sudoers:
         name: sudoers-nopasswd
         state: present
         user: "{{ username }}"
-        commands:
-          - /usr/bin/systemctl restart ssh
-          - /usr/bin/apt update
-          - /usr/bin/apt upgrade
+        commands: ALL
         nopassword: true
+        validation: required
     - name: Install ssh package
       ansible.builtin.apt:
         name: openssh-server
@@ -17,11 +16,13 @@
         update_cache: true
     - name: SSH Config
       ansible.builtin.copy:
-        src: "sshd_config.j2"
+        src: "sshd_config"
         dest: "/etc/ssh/sshd_config"
         mode: "0644"
         owner: root
         group: root
+        backup: true
+        validate: /usr/sbin/sshd -t -f %s
       notify: RestartSSH
     - name: Check Vault SSH Endpoint
       ansible.builtin.uri:
@@ -41,4 +42,3 @@
       when:
         - vault_ssh_check is success
         - vault_ssh_check.status == 200
-  become: true

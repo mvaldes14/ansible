@@ -3,11 +3,8 @@
     - pkg
   block:
     - name: Setup Structure
-      include_tasks: structure.yml
+      ansible.builtin.include_tasks: structure.yml
     - name: Setup SSH Access
-      include_tasks: access.yml
-    - name: Setup Otel Agent
-      ansible.builtin.include_tasks: otel.yml
-      when: otel_enabled | default(true)
+      ansible.builtin.include_tasks: access.yml
     - name: Setup MOTD
-      include_tasks: motd.yml
+      ansible.builtin.include_tasks: motd.yml
