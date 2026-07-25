@@ -1,5 +1,0 @@
-- name: Test the role
-  hosts: localhost
-  remote_user: root
-  roles:
-    - node_setup

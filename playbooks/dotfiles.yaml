@@ -1,6 +1,0 @@
-# Main playbook
-- name: Base Setup for new system
-  hosts: local
-  gather_facts: true
-  roles:
-    - role: dotfiles_setup

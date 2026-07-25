@@ -5,29 +5,23 @@ Guidelines for AI agents working in this Ansible automation repository.
 ## Overview
 
 This repository contains Ansible playbooks and roles for homelab infrastructure
-automation, including machine setup, dotfiles management, and service deployment.
+automation, including machine setup and service deployment.
 
 ## Development Environment
 
-### Setup with Devbox
+Tasks are driven by [Task](https://taskfile.dev) (`Taskfile.yml` at the repo
+root). Run `task` with no arguments to list everything.
+
+### Setup
 
 ```bash
-# Install devbox if not present, then:
-devbox shell
-
-# This automatically activates venv and installs requirements
-```
-
-### Manual Setup
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-ansible-galaxy install -r requirements.yml
+task deps   # rebuilds .venv, installs requirements.txt and galaxy collections
 ```
 
 ### Environment Variables
+
+`ANSIBLE_ROLES_PATH` is exported by the Taskfile. Only needed when invoking
+ansible directly:
 
 ```bash
 export ANSIBLE_ROLES_PATH="$(pwd)/roles"
@@ -39,7 +33,10 @@ export ANSIBLE_ROLES_PATH="$(pwd)/roles"
 
 ```bash
 # Lint entire repository
-ansible-lint
+task lint
+
+# Syntax-check every playbook
+task syntax
 
 # Lint specific file
 ansible-lint playbooks/restart.yaml
@@ -58,7 +55,7 @@ ansible-playbook -i inventory/homelab.ini playbooks/restart.yaml
 ansible-playbook -i inventory/homelab.ini playbooks/restart.yaml --check
 
 # Run with specific tags
-ansible-playbook -i inventory/homelab.ini playbooks/restart.yaml --tags "pkg,otel"
+ansible-playbook -i inventory/homelab.ini playbooks/restart.yaml --tags "pkg,motd"
 
 # Limit to specific hosts
 ansible-playbook -i inventory/homelab.ini playbooks/restart.yaml --limit eva01
@@ -66,38 +63,24 @@ ansible-playbook -i inventory/homelab.ini playbooks/restart.yaml --limit eva01
 
 ### Testing with Molecule
 
-```bash
-# Run full test sequence for a role
-cd roles/node_setup
-molecule test
-
-# Run converge only (apply role)
-molecule converge
-
-# Run verify only (run tests)
-molecule verify
-
-# Destroy test environment
-molecule destroy
-
-# Run specific scenario
-molecule test -s default
-```
-
-### Python Tests (pytest with testinfra)
+Use the Taskfile. Every task runs from the repo root and sets
+`ANSIBLE_ROLES_PATH` itself, so there is no need to `cd` into a role.
 
 ```bash
-# Run all pytest tests
-cd roles/node_setup
-molecule login  # Enter container first
-pytest molecule/default/tests/
+task                   # list tasks, show which roles have a scenario
+task test              # full sequence: create, converge, idempotence, verify, destroy
+task converge          # apply the role, leave the container up
+task verify            # run verify.yml against the running container
+task idempotence       # re-converge, fail on any change
+task login             # shell into the container
+task destroy           # tear it down
+task test-all          # every role that has a scenario
 
-# Run single test file
-pytest molecule/default/tests/test_default.py
-
-# Run specific test function
-pytest molecule/default/tests/test_default.py::test_user_created -v
+task test ROLE=<role>  # target a specific role (defaults to node_setup)
 ```
+
+Requires a running Docker daemon; the targets fail with a clear message if it
+is unreachable or if molecule is not installed.
 
 ## Code Style Guidelines
 
@@ -294,7 +277,7 @@ Apply `become: true` at block level when multiple tasks need elevation:
 The `.ansible-lint` file configures:
 - Profile: `basic`
 - Skipped rules: `var-naming`
-- Excluded paths: `.git`, `.github`, `.direnv`, `.devbox`
+- Excluded paths: `.git`, `.github`, `.direnv`
 
 ## Collections Used
 

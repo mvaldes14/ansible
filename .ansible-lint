@@ -3,6 +3,5 @@ exclude_paths:
   - .git
   - .github
   - .direnv
-  - .devbox
 skip_list:
   - var-naming

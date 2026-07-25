@@ -3,10 +3,3 @@
   ansible.builtin.systemd:
     name: ssh
     state: restarted
-- name: Restart Systemd Daemon
-  ansible.builtin.systemd:
-    daemon_reload: true
-- name: Restart Otel Agent
-  ansible.builtin.systemd:
-    name: otel-agent
-    state: restarted

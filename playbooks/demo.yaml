@@ -1,5 +1,5 @@
 - name: Demo Youtube
-  hosts: homelab
+  hosts: homelab_nodes
   gather_facts: false
   tasks:
     - name: K3s

@@ -1,3 +1,0 @@
-otel_version: 0.139.0
-agent_endpoint: 'otel.local.net'
-agent_port: 80

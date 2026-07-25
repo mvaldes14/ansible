@@ -7,6 +7,3 @@ username: mvaldes
 
 # Enable/disable pihole service management
 pihole_enabled: false
-
-# Enable/disable OTEL collector agent
-otel_enabled: false

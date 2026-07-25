@@ -1,7 +1,7 @@
 Include /etc/ssh/sshd_config.d/*.conf
 UsePAM yes
 X11Forwarding no
-PrintMotd yes
+PrintMotd no
 AcceptEnv LANG LC_*
 TrustedUserCAKeys /etc/ssh/vault-cert.pub
 PermitEmptyPasswords no

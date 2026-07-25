@@ -1,0 +1,117 @@
+# Task runner for molecule scenarios and linting -- https://taskfile.dev
+#
+# Every task runs from the repo root: paths and ANSIBLE_ROLES_PATH are resolved
+# here, so you never have to cd into a role directory yourself.
+version: '3'
+
+vars:
+  ROLES_DIR: roles
+  VENV: .venv
+  # Role to act on. Override per invocation: task converge ROLE=node_setup
+  ROLE: node_setup
+  # Roles that actually ship a molecule scenario.
+  MOLECULE_ROLES:
+    sh: ls -d roles/*/molecule 2>/dev/null | sed 's|roles/||; s|/molecule||' | tr '\n' ' '
+  # Prefer the venv, but only when its interpreter actually exists -- a venv
+  # whose python has been garbage collected leaves behind shims that die with
+  # "bad interpreter". Otherwise fall back to whatever is on PATH.
+  MOLECULE:
+    sh: test -x .venv/bin/python && echo "{{.ROOT_DIR}}/.venv/bin/molecule" || echo molecule
+  ANSIBLE_LINT:
+    sh: test -x .venv/bin/python && echo "{{.ROOT_DIR}}/.venv/bin/ansible-lint" || echo ansible-lint
+  PLAYBOOK:
+    sh: test -x .venv/bin/python && echo "{{.ROOT_DIR}}/.venv/bin/ansible-playbook" || echo ansible-playbook
+
+env:
+  ANSIBLE_ROLES_PATH: '{{.ROOT_DIR}}/{{.ROLES_DIR}}'
+
+tasks:
+  default:
+    desc: Show available tasks
+    silent: true
+    cmds:
+      - task --list
+      - 'echo; echo "ROLE defaults to {{.ROLE}} -- roles with a molecule scenario: {{.MOLECULE_ROLES}}"'
+
+  roles:
+    desc: List roles that have a molecule scenario
+    silent: true
+    cmds:
+      - 'printf "%s\n" {{.MOLECULE_ROLES}}'
+
+  check:
+    internal: true
+    preconditions:
+      - sh: test -d "{{.ROLES_DIR}}/{{.ROLE}}/molecule"
+        msg: 'No molecule scenario for role "{{.ROLE}}". Available: {{.MOLECULE_ROLES}}'
+      - sh: '{{.MOLECULE}} --version >/dev/null 2>&1'
+        msg: 'molecule is not runnable. Run "task deps" to build {{.VENV}}.'
+      - sh: docker info >/dev/null 2>&1
+        msg: 'Docker daemon is not reachable -- molecule needs it to create the test container. Start Docker Desktop (or colima) and retry.'
+
+  test:
+    desc: Full molecule run (create, converge, idempotence, verify, destroy)
+    deps: [check]
+    dir: '{{.ROLES_DIR}}/{{.ROLE}}'
+    cmds:
+      - '{{.MOLECULE}} test'
+
+  converge:
+    desc: Apply the role to the test container and leave it running
+    deps: [check]
+    dir: '{{.ROLES_DIR}}/{{.ROLE}}'
+    cmds:
+      - '{{.MOLECULE}} converge'
+
+  verify:
+    desc: Run verify.yml against the running container
+    deps: [check]
+    dir: '{{.ROLES_DIR}}/{{.ROLE}}'
+    cmds:
+      - '{{.MOLECULE}} verify'
+
+  idempotence:
+    desc: Re-converge and fail if anything reports changed
+    deps: [check]
+    dir: '{{.ROLES_DIR}}/{{.ROLE}}'
+    cmds:
+      - '{{.MOLECULE}} idempotence'
+
+  login:
+    desc: Shell into the running test container
+    deps: [check]
+    dir: '{{.ROLES_DIR}}/{{.ROLE}}'
+    interactive: true
+    cmds:
+      - '{{.MOLECULE}} login'
+
+  destroy:
+    desc: Tear down the test container
+    deps: [check]
+    dir: '{{.ROLES_DIR}}/{{.ROLE}}'
+    cmds:
+      - '{{.MOLECULE}} destroy'
+
+  test-all:
+    desc: Run the full molecule suite for every role that has one
+    cmds:
+      - for: { var: MOLECULE_ROLES }
+        cmd: task test ROLE={{.ITEM}}
+
+  lint:
+    desc: Run ansible-lint across the repo
+    cmds:
+      - '{{.ANSIBLE_LINT}}'
+
+  syntax:
+    desc: Syntax-check every playbook
+    cmds:
+      - for p in playbooks/*.yaml; do echo "==> $p"; {{.PLAYBOOK}} --syntax-check "$p"; done
+
+  deps:
+    desc: Rebuild {{.VENV}} and install python + galaxy dependencies
+    cmds:
+      - python3 -m venv --clear {{.VENV}}
+      - '{{.VENV}}/bin/pip install --upgrade pip'
+      - '{{.VENV}}/bin/pip install -r requirements.txt'
+      - '{{.VENV}}/bin/ansible-galaxy collection install -r requirements.yml'
