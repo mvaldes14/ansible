@@ -109,9 +109,11 @@ tasks:
       - for p in playbooks/*.yaml; do echo "==> $p"; {{.PLAYBOOK}} --syntax-check "$p"; done
 
   deps:
-    desc: Rebuild {{.VENV}} and install python + galaxy dependencies
+    desc: Rebuild {{.VENV}} with uv and install python + galaxy dependencies
+    preconditions:
+      - sh: command -v uv >/dev/null 2>&1
+        msg: 'uv is not installed -- "brew install uv" (see https://docs.astral.sh/uv/).'
     cmds:
-      - python3 -m venv --clear {{.VENV}}
-      - '{{.VENV}}/bin/pip install --upgrade pip'
-      - '{{.VENV}}/bin/pip install -r requirements.txt'
+      - uv venv --clear {{.VENV}}
+      - uv pip install --python {{.VENV}}/bin/python -r requirements.txt
       - '{{.VENV}}/bin/ansible-galaxy collection install -r requirements.yml'

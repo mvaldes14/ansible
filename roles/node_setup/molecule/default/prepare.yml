@@ -1,0 +1,16 @@
+- name: Prepare
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    # sshd refuses to run "-t" (used by the role's validate:) without its
+    # privilege separation directory. On a real node systemd creates it from
+    # ssh.service's RuntimeDirectory=sshd, but this container boots without
+    # multi-user.target.wants and mounts /run as tmpfs, so nothing ever does.
+    - name: Create sshd privilege separation directory
+      ansible.builtin.file:
+        path: /run/sshd
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root

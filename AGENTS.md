@@ -14,8 +14,10 @@ root). Run `task` with no arguments to list everything.
 
 ### Setup
 
+Requires [uv](https://docs.astral.sh/uv/) (`brew install uv`).
+
 ```bash
-task deps   # rebuilds .venv, installs requirements.txt and galaxy collections
+task deps   # rebuilds .venv with uv, installs requirements.txt and galaxy collections
 ```
 
 ### Environment Variables
