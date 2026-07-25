@@ -1,4 +1,3 @@
-pip
 kubernetes
 molecule
 molecule-plugins
