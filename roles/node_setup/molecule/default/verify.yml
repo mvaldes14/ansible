@@ -55,6 +55,24 @@
             fail_msg: "SSHD config missing required security settings"
             success_msg: "SSHD config contains all required security settings"
 
+        - name: Read Login Shell
+          ansible.builtin.getent:
+            database: passwd
+            key: "{{ username }}"
+
+        - name: Check Login Shell Binary Exists
+          ansible.builtin.stat:
+            path: "{{ getent_passwd[username][5] }}"
+          register: login_shell_bin
+
+        - name: Assert Login Shell Is Bash And Present
+          ansible.builtin.assert:
+            that:
+              - getent_passwd[username][5] == "/usr/bin/bash"
+              - login_shell_bin.stat.exists
+            fail_msg: "Login shell for {{ username }} is not /usr/bin/bash or the binary is missing - sshd will reject the account"
+            success_msg: "Login shell is /usr/bin/bash and the binary exists"
+
         - name: Check Sudoers File Exists
           ansible.builtin.stat:
             path: /etc/sudoers.d/sudoers-nopasswd

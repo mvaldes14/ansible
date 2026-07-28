@@ -9,6 +9,14 @@
         commands: ALL
         nopassword: true
         validation: required
+    # sshd refuses the account outright when its login shell is missing from the
+    # node ("User x not allowed because shell y does not exist"), which surfaces
+    # client-side as a generic "Permission denied (publickey)" and looks like a
+    # bad cert. Pin the shell to one that is always present.
+    - name: Set Login Shell
+      ansible.builtin.user:
+        name: "{{ username }}"
+        shell: /usr/bin/bash
     - name: Install ssh package
       ansible.builtin.apt:
         name: openssh-server
