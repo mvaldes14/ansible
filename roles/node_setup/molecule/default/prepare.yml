@@ -14,3 +14,26 @@
         mode: "0755"
         owner: root
         group: root
+
+    # Seed a non-zero update cache before converge so the MOTD's "N packages /
+    # N security" render path is exercised without needing a node that actually
+    # has pending updates. The role's first-run refresh uses "creates:", so it
+    # leaves this seeded value in place.
+    - name: Create MOTD update-cache directory
+      ansible.builtin.file:
+        path: /var/lib/node-motd
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Seed MOTD update cache with pending updates
+      ansible.builtin.copy:
+        dest: /var/lib/node-motd/updates.cache
+        mode: "0644"
+        owner: root
+        group: root
+        content: |
+          updates=5
+          security=2
+          generated=2026-01-01T00:00:00Z
