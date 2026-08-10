@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh cached apt update counts for the homelab MOTD
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/node-motd-refresh

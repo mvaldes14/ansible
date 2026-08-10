@@ -34,11 +34,17 @@ echo ""
 
 # Check for updates
 echo -e "${BLUE}Package Updates:${NC}"
-if command -v apt-get &> /dev/null; then
-    UPDATES=$(apt-get -s upgrade 2>/dev/null | grep -P '^\d+ upgraded' | cut -d" " -f1)
-    SECURITY=$(apt-get -s upgrade 2>/dev/null | grep -i security | wc -l)
-    
-    if [ -z "$UPDATES" ] || [ "$UPDATES" -eq 0 ]; then
+# Update counts are computed off the login path by node-motd-refresh (systemd
+# timer) and cached here. Never run apt in this script: pam_motd.so executes it
+# on every SSH connect, so a live "apt-get -s upgrade" costs ~1s per login.
+UPDATE_CACHE=/var/lib/node-motd/updates.cache
+if [ -r "$UPDATE_CACHE" ]; then
+    UPDATES=$(awk -F= '/^updates=/{print $2}' "$UPDATE_CACHE")
+    SECURITY=$(awk -F= '/^security=/{print $2}' "$UPDATE_CACHE")
+    UPDATES=${UPDATES:-0}
+    SECURITY=${SECURITY:-0}
+
+    if [ "$UPDATES" -eq 0 ]; then
         echo -e "  ${GREEN}System is up to date${NC}"
     else
         echo -e "  ${YELLOW}$UPDATES package(s) can be upgraded${NC}"
@@ -46,13 +52,13 @@ if command -v apt-get &> /dev/null; then
             echo -e "  ${RED}$SECURITY security update(s) available${NC}"
         fi
     fi
-    
-    # Check if reboot is required
-    if [ -f /var/run/reboot-required ]; then
-        echo -e "  ${RED}*** System reboot required ***${NC}"
-    fi
 else
-    echo -e "  ${YELLOW}Package manager not supported${NC}"
+    echo -e "  ${YELLOW}Update status unknown (cache not yet populated)${NC}"
+fi
+
+# Check if reboot is required
+if [ -f /var/run/reboot-required ]; then
+    echo -e "  ${RED}*** System reboot required ***${NC}"
 fi
 echo ""
 

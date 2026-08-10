@@ -19,6 +19,42 @@
         mode: "0755"
         owner: root
         group: root
+    - name: Ensure MOTD Update-Cache Directory Exists
+      ansible.builtin.file:
+        path: /var/lib/node-motd
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+    - name: Deploy MOTD Update-Count Refresh Script
+      ansible.builtin.copy:
+        src: node-motd-refresh
+        dest: /usr/local/sbin/node-motd-refresh
+        mode: "0755"
+        owner: root
+        group: root
+    - name: Deploy MOTD Refresh Systemd Units
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "/etc/systemd/system/{{ item }}"
+        mode: "0644"
+        owner: root
+        group: root
+      loop:
+        - node-motd-refresh.service
+        - node-motd-refresh.timer
+      notify: ReloadSystemd
+    - name: Reload Systemd Before Enabling New Units
+      ansible.builtin.meta: flush_handlers
+    - name: Enable and Start MOTD Refresh Timer
+      ansible.builtin.systemd:
+        name: node-motd-refresh.timer
+        enabled: true
+        state: started
+    - name: Populate MOTD Update Cache on First Run
+      ansible.builtin.command: /usr/local/sbin/node-motd-refresh
+      args:
+        creates: /var/lib/node-motd/updates.cache
     - name: Ensure MOTD is Enabled in PAM
       ansible.builtin.lineinfile:
         path: /etc/pam.d/sshd

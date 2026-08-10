@@ -161,6 +161,86 @@
             fail_msg: "MOTD script failed to execute"
             success_msg: "MOTD script executes successfully"
 
+        - name: Assert MOTD Renders Cached Update Counts
+          ansible.builtin.assert:
+            that:
+              - "'5 package(s) can be upgraded' in motd_output.stdout"
+              - "'2 security update(s) available' in motd_output.stdout"
+            fail_msg: "MOTD did not render the seeded cached update counts"
+            success_msg: "MOTD renders cached update counts (non-zero path)"
+
+        - name: Assert MOTD Script Does Not Shell Out To Apt
+          ansible.builtin.assert:
+            that:
+              - "'apt-get' not in motd_content.content | b64decode"
+              - "'apt ' not in motd_content.content | b64decode"
+            fail_msg: "MOTD script still invokes apt on the login path"
+            success_msg: "MOTD script no longer invokes apt on the login path"
+
+        - name: Time MOTD Script Execution
+          ansible.builtin.shell: |
+            set -o pipefail
+            start=$(date +%s%N)
+            /etc/update-motd.d/00-homelab >/dev/null 2>&1
+            end=$(date +%s%N)
+            echo $(( (end - start) / 1000000 ))
+          args:
+            executable: /bin/bash
+          register: motd_runtime_ms
+          changed_when: false
+
+        - name: Assert MOTD Script Runs Under The 50ms Budget
+          ansible.builtin.assert:
+            that:
+              - motd_runtime_ms.stdout | int < 50
+            fail_msg: "MOTD script took {{ motd_runtime_ms.stdout }}ms (budget: 50ms)"
+            success_msg: "MOTD script ran in {{ motd_runtime_ms.stdout }}ms (budget: 50ms)"
+
+        - name: Check Update Cache File Exists
+          ansible.builtin.stat:
+            path: /var/lib/node-motd/updates.cache
+          register: update_cache
+
+        - name: Read Update Cache Content
+          ansible.builtin.slurp:
+            src: /var/lib/node-motd/updates.cache
+          register: update_cache_content
+
+        - name: Assert Update Cache Exists And Is Well-Formed
+          ansible.builtin.assert:
+            that:
+              - update_cache.stat.exists
+              - "'updates=' in update_cache_content.content | b64decode"
+              - "'security=' in update_cache_content.content | b64decode"
+            fail_msg: "Update cache is missing or malformed"
+            success_msg: "Update cache exists and is well-formed"
+
+        - name: Check MOTD Refresh Script Is Executable
+          ansible.builtin.stat:
+            path: /usr/local/sbin/node-motd-refresh
+          register: refresh_script
+
+        - name: Assert MOTD Refresh Script Is Executable
+          ansible.builtin.assert:
+            that:
+              - refresh_script.stat.exists
+              - refresh_script.stat.executable
+            fail_msg: "node-motd-refresh script is missing or not executable"
+            success_msg: "node-motd-refresh script is present and executable"
+
+        - name: Check MOTD Refresh Timer State
+          ansible.builtin.systemd:
+            name: node-motd-refresh.timer
+          register: refresh_timer
+
+        - name: Assert MOTD Refresh Timer Is Enabled And Active
+          ansible.builtin.assert:
+            that:
+              - refresh_timer.status.UnitFileState == "enabled"
+              - refresh_timer.status.ActiveState == "active"
+            fail_msg: "node-motd-refresh.timer is not enabled/active"
+            success_msg: "node-motd-refresh.timer is enabled and active"
+
         - name: Check Default MOTD Components Are Disabled
           ansible.builtin.stat:
             path: "/etc/update-motd.d/{{ item }}"

@@ -1,0 +1,44 @@
+#!/bin/bash
+# Refresh the cached apt update counts consumed by /etc/update-motd.d/00-homelab.
+#
+# Run off the login path (systemd timer), not by pam_motd.so on every SSH
+# connect. Writes /var/lib/node-motd/updates.cache atomically in key=value form:
+#
+#   updates=<count>
+#   security=<count>
+#   generated=<iso-8601-utc>
+set -euo pipefail
+
+CACHE_DIR=/var/lib/node-motd
+CACHE="${CACHE_DIR}/updates.cache"
+APT_CHECK=/usr/lib/update-notifier/apt-check
+
+mkdir -p "$CACHE_DIR"
+
+updates=0
+security=0
+
+if [ -x "$APT_CHECK" ]; then
+    # apt-check prints "<updates>;<security>" to stderr and reads apt's own
+    # cache, so it is fast and its security count is authoritative.
+    read -r updates security < <("$APT_CHECK" 2>&1 | tr ';' ' ') || true
+elif command -v apt-get >/dev/null 2>&1; then
+    # Fallback: simulate the upgrade once. "Inst" lines list packages that would
+    # be installed; those from a "-security" pocket are the security updates.
+    sim=$(apt-get -s upgrade 2>/dev/null || true)
+    updates=$(printf '%s\n' "$sim" | grep -c '^Inst ' || true)
+    security=$(printf '%s\n' "$sim" | grep '^Inst ' | grep -ci 'security' || true)
+fi
+
+# Guard against empty/non-numeric results from either path.
+[[ "$updates"  =~ ^[0-9]+$ ]] || updates=0
+[[ "$security" =~ ^[0-9]+$ ]] || security=0
+
+tmp=$(mktemp "${CACHE}.XXXXXX")
+{
+    echo "updates=${updates}"
+    echo "security=${security}"
+    echo "generated=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} >"$tmp"
+chmod 0644 "$tmp"
+mv "$tmp" "$CACHE"
