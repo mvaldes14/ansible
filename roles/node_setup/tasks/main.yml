@@ -3,8 +3,8 @@
     - pkg
   block:
     - name: Setup Structure
-      ansible.builtin.include_tasks: structure.yml
+      ansible.builtin.import_tasks: structure.yml
     - name: Setup SSH Access
-      ansible.builtin.include_tasks: access.yml
+      ansible.builtin.import_tasks: access.yml
     - name: Setup MOTD
-      ansible.builtin.include_tasks: motd.yml
+      ansible.builtin.import_tasks: motd.yml
