@@ -37,3 +37,27 @@
           updates=5
           security=2
           generated=2026-01-01T00:00:00Z
+
+    # The CNI task is a no-op unless the k3s data directory is present, which it
+    # never is in a plain container. Stand in for a joined node so the symlink
+    # path is actually exercised.
+    - name: Create k3s CNI directory
+      ansible.builtin.file:
+        path: /var/lib/rancher/k3s/data/cni
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Seed k3s CNI plugin binaries
+      ansible.builtin.copy:
+        dest: "/var/lib/rancher/k3s/data/cni/{{ item }}"
+        mode: "0755"
+        owner: root
+        group: root
+        content: |
+          #!/bin/sh
+          echo "stub {{ item }}"
+      loop:
+        - cilium-cni
+        - loopback

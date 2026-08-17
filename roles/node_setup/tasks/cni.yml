@@ -1,0 +1,32 @@
+# k3s ships its CNI binaries under /var/lib/rancher/k3s/data/cni and the Cilium
+# chart is pointed at that same directory (cni.binPath in k8s-apps/cilium).
+# containerd, however, is never given a [plugins.'io.containerd.cri.v1.cni']
+# section by k3s, so it falls back to its compiled-in default of /opt/cni/bin
+# and reports 'failed to find plugin "cilium-cni" in path [/opt/cni/bin]'. Every
+# non-hostNetwork pod on the node then sticks in ContainerCreating while Cilium
+# itself looks perfectly healthy. Bridge the two paths with symlinks so the
+# binary Cilium installs is visible where containerd actually looks.
+- name: Setup CNI Plugin Paths
+  become: true
+  block:
+    # A fresh node has no /opt/cni at all, and state=link will not create the
+    # missing parent for us.
+    - name: Create Containerd CNI Directory
+      ansible.builtin.file:
+        path: "{{ containerd_cni_bin_dir }}"
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Link CNI Plugins
+      ansible.builtin.file:
+        src: "{{ k3s_cni_bin_dir }}/{{ item }}"
+        dest: "{{ containerd_cni_bin_dir }}/{{ item }}"
+        state: link
+        # The target is installed by the Cilium DaemonSet, which may not have run
+        # yet on a freshly joined node. Link anyway so the path is correct the
+        # moment the binary lands.
+        force: true
+        follow: false
+      loop: "{{ cni_linked_plugins }}"

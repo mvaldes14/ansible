@@ -7,3 +7,14 @@ username: mvaldes
 
 # Enable/disable pihole service management
 pihole_enabled: false
+
+# Where k3s (and the Cilium chart, via cni.binPath) place CNI plugin binaries
+k3s_cni_bin_dir: /var/lib/rancher/k3s/data/cni
+
+# Where containerd looks for CNI plugins when k3s writes no cni config section
+containerd_cni_bin_dir: /opt/cni/bin
+
+# Plugins symlinked from k3s_cni_bin_dir into containerd_cni_bin_dir
+cni_linked_plugins:
+  - cilium-cni
+  - loopback

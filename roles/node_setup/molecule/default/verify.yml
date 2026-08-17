@@ -283,6 +283,50 @@
             success_msg: "PrintMotd is configured in sshd_config"
 
     # =========================================================================
+    # CNI Plugin Path Tests (cni.yml)
+    # =========================================================================
+    - name: Verify CNI Plugin Paths
+      tags:
+        - cni
+      block:
+        - name: Check CNI Plugin Symlinks
+          ansible.builtin.stat:
+            path: "/opt/cni/bin/{{ item }}"
+            follow: false
+          loop:
+            - cilium-cni
+            - loopback
+          register: cni_links
+
+        - name: Assert CNI Plugins Are Linked To The k3s Data Directory
+          ansible.builtin.assert:
+            that:
+              - item.stat.exists
+              - item.stat.islnk
+              - item.stat.lnk_target == "/var/lib/rancher/k3s/data/cni/" ~ item.item
+            fail_msg: "/opt/cni/bin/{{ item.item }} is not a symlink into the k3s CNI directory - containerd will fail with 'failed to find plugin'"
+            success_msg: "/opt/cni/bin/{{ item.item }} links to the k3s CNI directory"
+          loop: "{{ cni_links.results }}"
+
+        - name: Check CNI Plugin Symlinks Resolve
+          ansible.builtin.stat:
+            path: "/opt/cni/bin/{{ item }}"
+            follow: true
+          loop:
+            - cilium-cni
+            - loopback
+          register: cni_targets
+
+        - name: Assert CNI Plugin Symlinks Resolve To Executables
+          ansible.builtin.assert:
+            that:
+              - item.stat.exists
+              - item.stat.executable
+            fail_msg: "/opt/cni/bin/{{ item.item }} is a dangling symlink"
+            success_msg: "/opt/cni/bin/{{ item.item }} resolves to an executable"
+          loop: "{{ cni_targets.results }}"
+
+    # =========================================================================
     # Idempotency Test
     # =========================================================================
     - name: Verify Idempotency Indicators
