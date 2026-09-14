@@ -16,6 +16,7 @@
         shell: "{{ user_login_shell }}"
 
     - name: Install Oh My Zsh
+      become: true
       become_user: "{{ username }}"
       ansible.builtin.git:
         repo: "{{ oh_my_zsh_repo }}"

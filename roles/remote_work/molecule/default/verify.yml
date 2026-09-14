@@ -120,7 +120,7 @@
             success_msg: "Repository checkout exists: {{ item.item }}"
           loop: "{{ repo_checkouts.results }}"
 
-        - name: Verify Repositories Are Up To Date
+        - name: Verify Repositories Are Up To Date  # noqa: command-instead-of-module
           become: true
           become_user: "{{ remote_work_user }}"
           ansible.builtin.command:

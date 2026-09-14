@@ -103,13 +103,12 @@
         label: "{{ item.name }}"
 
     - name: Pull Core Work Repositories
-      ansible.builtin.command:
-        cmd: git pull --ff-only
-        chdir: "{{ item.dest }}"
-      register: remote_work_core_repo_pull
-      changed_when:
-        - "'Already up to date.' not in remote_work_core_repo_pull.stdout"
-        - "'Already up-to-date.' not in remote_work_core_repo_pull.stdout"
+      ansible.builtin.git:
+        repo: "{{ item.repo }}"
+        dest: "{{ item.dest }}"
+        version: "{{ item.version | default('main') }}"
+        update: true
+        accept_hostkey: true
       loop: "{{ remote_work_core_repositories }}"
       loop_control:
         label: "{{ item.name }}"
@@ -124,13 +123,12 @@
       when: remote_work_obsidian_vault_repo | length > 0
 
     - name: Pull Obsidian Vault Repository
-      ansible.builtin.command:
-        cmd: git pull --ff-only
-        chdir: "{{ remote_work_obsidian_vault_dir }}"
-      register: remote_work_obsidian_vault_pull
-      changed_when:
-        - "'Already up to date.' not in remote_work_obsidian_vault_pull.stdout"
-        - "'Already up-to-date.' not in remote_work_obsidian_vault_pull.stdout"
+      ansible.builtin.git:
+        repo: "{{ remote_work_obsidian_vault_repo }}"
+        dest: "{{ remote_work_obsidian_vault_dir }}"
+        version: main
+        update: true
+        accept_hostkey: true
       when: remote_work_obsidian_vault_repo | length > 0
 
     - name: Clone Extra Work Repositories
@@ -143,13 +141,12 @@
       loop: "{{ remote_work_repositories }}"
 
     - name: Pull Extra Work Repositories
-      ansible.builtin.command:
-        cmd: git pull --ff-only
-        chdir: "{{ remote_work_workspace_dir }}/{{ item | basename | regex_replace('\\.git$', '') }}"
-      register: remote_work_extra_repo_pull
-      changed_when:
-        - "'Already up to date.' not in remote_work_extra_repo_pull.stdout"
-        - "'Already up-to-date.' not in remote_work_extra_repo_pull.stdout"
+      ansible.builtin.git:
+        repo: "{{ item }}"
+        dest: "{{ remote_work_workspace_dir }}/{{ item | basename | regex_replace('\\.git$', '') }}"
+        version: main
+        update: true
+        accept_hostkey: true
       loop: "{{ remote_work_repositories }}"
 
 - name: Bootstrap AI Configuration
