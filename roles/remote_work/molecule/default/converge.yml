@@ -1,0 +1,41 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    remote_work_user: mvaldes
+    remote_work_home: /home/mvaldes
+    remote_work_workspace_dir: /home/mvaldes/git
+    remote_work_obsidian_vault_dir: /home/mvaldes/Obsidian/wiki
+    remote_work_packages:
+      - ca-certificates
+      - curl
+      - git
+      - jq
+      - nodejs
+      - npm
+      - openssh-client
+      - python3
+      - python3-venv
+      - ripgrep
+      - tmux
+      - unzip
+    remote_work_herdr_install_script: file:///tmp/herdr-install.sh
+    remote_work_pi_install_script: file:///tmp/pi-install.sh
+    remote_work_npm_bin: /usr/local/bin/fake-npm
+    remote_work_dotfiles_repo: file:///tmp/git-src/dotfiles
+    remote_work_dotfiles_dir: /home/mvaldes/git/dotfiles
+    remote_work_core_repositories:
+      - name: dotfiles
+        repo: file:///tmp/git-src/dotfiles
+        dest: /home/mvaldes/git/dotfiles
+        version: main
+      - name: ansible
+        repo: file:///tmp/git-src/ansible
+        dest: /home/mvaldes/git/ansible
+        version: main
+    remote_work_obsidian_vault_repo: file:///tmp/git-src/wiki
+    remote_work_repositories:
+      - file:///tmp/git-src/extra
+  roles:
+    - role: remote_work

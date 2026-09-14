@@ -1,0 +1,162 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  vars:
+    remote_work_user: mvaldes
+    remote_work_home: /home/mvaldes
+    remote_work_workspace_dir: /home/mvaldes/git
+    remote_work_obsidian_vault_dir: /home/mvaldes/Obsidian/wiki
+  tasks:
+    - name: Verify Remote Work Packages
+      tags:
+        - pkg
+      block:
+        - name: Check Required Commands
+          ansible.builtin.shell:
+            cmd: "command -v {{ item }}"
+            executable: /bin/bash
+          changed_when: false
+          loop:
+            - git
+            - jq
+            - node
+            - npm
+            - python3
+            - rg
+            - tmux
+          register: remote_work_commands
+
+        - name: Assert Required Commands Are Available
+          ansible.builtin.assert:
+            that:
+              - item.rc == 0
+            fail_msg: "Required command missing: {{ item.item }}"
+            success_msg: "Required command available: {{ item.item }}"
+          loop: "{{ remote_work_commands.results }}"
+
+    - name: Verify Remote Work CLIs
+      tags:
+        - cli
+      block:
+        - name: Check Herdr Binary
+          ansible.builtin.stat:
+            path: "{{ remote_work_home }}/.local/bin/herdr"
+          register: herdr_binary
+
+        - name: Check Herdr System Link
+          ansible.builtin.stat:
+            path: /usr/local/bin/herdr
+            follow: false
+          register: herdr_system_link
+
+        - name: Check Pi System Link
+          ansible.builtin.stat:
+            path: /usr/local/bin/pi
+            follow: true
+          register: pi_system_link
+
+        - name: Check Obsidian Headless Binary
+          ansible.builtin.stat:
+            path: /usr/local/bin/ob
+          register: obsidian_headless_binary
+
+        - name: Assert Remote Work CLIs Are Installed
+          ansible.builtin.assert:
+            that:
+              - herdr_binary.stat.exists
+              - herdr_binary.stat.executable
+              - herdr_system_link.stat.islnk
+              - pi_system_link.stat.exists
+              - pi_system_link.stat.executable
+              - obsidian_headless_binary.stat.exists
+              - obsidian_headless_binary.stat.executable
+            fail_msg: "One or more remote work CLIs are missing"
+            success_msg: "Herdr, pi, and Obsidian Headless are installed"
+
+    - name: Verify Remote Work Directories
+      tags:
+        - structure
+      block:
+        - name: Check Workspace Directory
+          ansible.builtin.stat:
+            path: "{{ remote_work_workspace_dir }}"
+          register: workspace_dir
+
+        - name: Check Obsidian Parent Directory
+          ansible.builtin.stat:
+            path: "{{ remote_work_obsidian_vault_dir | dirname }}"
+          register: obsidian_parent_dir
+
+        - name: Assert Remote Work Directories Exist
+          ansible.builtin.assert:
+            that:
+              - workspace_dir.stat.isdir
+              - workspace_dir.stat.pw_name == remote_work_user
+              - obsidian_parent_dir.stat.isdir
+              - obsidian_parent_dir.stat.pw_name == remote_work_user
+            fail_msg: "Remote work directories are missing or owned by the wrong user"
+            success_msg: "Remote work directories exist with expected ownership"
+
+    - name: Verify Remote Work Repositories
+      tags:
+        - git
+      block:
+        - name: Check Repository Checkouts
+          ansible.builtin.stat:
+            path: "{{ item }}/.git"
+          loop:
+            - /home/mvaldes/git/dotfiles
+            - /home/mvaldes/git/ansible
+            - /home/mvaldes/git/extra
+            - /home/mvaldes/Obsidian/wiki
+          register: repo_checkouts
+
+        - name: Assert Repositories Are Present
+          ansible.builtin.assert:
+            that:
+              - item.stat.exists
+            fail_msg: "Repository checkout missing: {{ item.item }}"
+            success_msg: "Repository checkout exists: {{ item.item }}"
+          loop: "{{ repo_checkouts.results }}"
+
+        - name: Verify Repositories Are Up To Date
+          become: true
+          become_user: "{{ remote_work_user }}"
+          ansible.builtin.command:
+            cmd: git status --short --branch
+            chdir: "{{ item }}"
+          changed_when: false
+          loop:
+            - /home/mvaldes/git/dotfiles
+            - /home/mvaldes/git/ansible
+            - /home/mvaldes/git/extra
+            - /home/mvaldes/Obsidian/wiki
+          register: repo_status
+
+        - name: Assert Repositories Are On Branch With No Local Changes
+          ansible.builtin.assert:
+            that:
+              - "'## main' in item.stdout"
+              - "'ahead' not in item.stdout"
+              - "'behind' not in item.stdout"
+              - "'??' not in item.stdout"
+            fail_msg: "Repository is not clean/current: {{ item.item }} => {{ item.stdout }}"
+            success_msg: "Repository is clean/current: {{ item.item }}"
+          loop: "{{ repo_status.results }}"
+
+    - name: Verify AI Bootstrap Ran
+      tags:
+        - ai
+      block:
+        - name: Check Bootstrap Marker
+          ansible.builtin.slurp:
+            src: /home/mvaldes/.config/remote-work-bootstrap/status
+          register: bootstrap_marker
+
+        - name: Assert Bootstrap Marker Exists
+          ansible.builtin.assert:
+            that:
+              - bootstrap_marker.content | b64decode == 'bootstrapped'
+            fail_msg: "Dotfiles AI bootstrap did not run"
+            success_msg: "Dotfiles AI bootstrap ran"

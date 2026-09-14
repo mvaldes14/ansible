@@ -1,5 +1,7 @@
 - name: Converge
   hosts: all
   gather_facts: true
+  vars:
+    oh_my_zsh_repo: file:///tmp/git-src/ohmyzsh
   roles:
     - role: node_setup

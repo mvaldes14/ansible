@@ -9,6 +9,7 @@ RUN apt-get update && \
     sudo \
     python3 \
     ca-certificates \
+    git \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 

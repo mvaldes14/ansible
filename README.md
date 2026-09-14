@@ -4,6 +4,7 @@ Repo used to install and normalize some of the common tasks done in new machines
 
 # Playbooks
 - Restart: Sets up machines that belong to the homelab cluster, drains and reboots them
+- Remote Work: Prepares machines for remote work sessions
 - Demo: Scratch playbook used for recordings
 
 # Testing
