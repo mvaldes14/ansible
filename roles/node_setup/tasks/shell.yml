@@ -1,0 +1,38 @@
+---
+- name: Setup User Shell
+  become: true
+  block:
+    - name: Install Shell Packages
+      ansible.builtin.apt:
+        name:
+          - git
+          - zsh
+        state: present
+        update_cache: true
+
+    - name: Set Login Shell
+      ansible.builtin.user:
+        name: "{{ username }}"
+        shell: "{{ user_login_shell }}"
+
+    - name: Install Oh My Zsh
+      become: true
+      become_user: "{{ username }}"
+      ansible.builtin.git:
+        repo: "{{ oh_my_zsh_repo }}"
+        dest: "{{ oh_my_zsh_dir }}"
+        version: master
+        update: true
+        accept_hostkey: true
+      when: install_oh_my_zsh
+
+    - name: Install Default Zshrc
+      ansible.builtin.copy:
+        src: "{{ oh_my_zsh_dir }}/templates/zshrc.zsh-template"
+        dest: "{{ username_home }}/.zshrc"
+        remote_src: true
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: "0644"
+        force: false
+      when: install_oh_my_zsh

@@ -1,0 +1,60 @@
+---
+# User that will run remote work sessions.
+remote_work_user: "{{ username | default(ansible_user | default('mvaldes')) }}"
+remote_work_home: "/home/{{ remote_work_user }}"
+
+# Common workspace locations.
+remote_work_workspace_dir: "{{ remote_work_home }}/git"
+remote_work_obsidian_vault_dir: "{{ remote_work_home }}/Obsidian/wiki"
+
+# Core Linux packages expected by remote development and repo work.
+remote_work_packages:
+  - ca-certificates
+  - curl
+  - fd-find
+  - fzf
+  - git
+  - jq
+  - neovim
+  - nodejs
+  - npm
+  - openssh-client
+  - python3
+  - python3-venv
+  - ripgrep
+  - tmux
+  - unzip
+
+# Remote helper CLIs installed on every remote work machine.
+remote_work_install_herdr: true
+remote_work_herdr_install_script: https://herdr.dev/install.sh
+remote_work_install_pi: true
+remote_work_pi_install_script: https://pi.dev/install.sh
+remote_work_install_obsidian_headless: true
+remote_work_npm_bin: npm
+
+# Core repos that should exist on every remote work machine.
+# These are cloned when missing and git-pulled on every playbook execution.
+remote_work_dotfiles_repo: git@github.com:mvaldes14/dotfiles.git
+remote_work_dotfiles_dir: "{{ remote_work_workspace_dir }}/dotfiles"
+remote_work_core_repositories:
+  - name: dotfiles
+    repo: "{{ remote_work_dotfiles_repo }}"
+    dest: "{{ remote_work_dotfiles_dir }}"
+    version: main
+  - name: ansible
+    repo: git@github.com:mvaldes14/ansible.git
+    dest: "{{ remote_work_workspace_dir }}/ansible"
+    version: main
+
+remote_work_run_ai_bootstrap: true
+remote_work_ai_bootstrap_path: "{{ remote_work_dotfiles_dir }}/ai/bootstrap.sh"
+
+# Optional private vault sync. Leave blank to skip.
+remote_work_obsidian_vault_repo: ""
+
+# Extra repos to clone/pull into remote_work_workspace_dir.
+# Example:
+# remote_work_repositories:
+#   - git@github.com:mvaldes14/some-work-repo.git
+remote_work_repositories: []

@@ -4,6 +4,13 @@
 
 # Username for SSH access configuration
 username: mvaldes
+username_home: "/home/{{ username }}"
+user_login_shell: /usr/bin/zsh
+
+# Shell setup
+install_oh_my_zsh: true
+oh_my_zsh_repo: https://github.com/ohmyzsh/ohmyzsh.git
+oh_my_zsh_dir: "{{ username_home }}/.oh-my-zsh"
 
 # Enable/disable pihole service management
 pihole_enabled: false

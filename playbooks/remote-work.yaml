@@ -1,0 +1,7 @@
+---
+- name: Setup Machines For Remote Work
+  hosts: homelab_nodes
+  gather_facts: true
+  roles:
+    - role: node_setup
+    - role: remote_work

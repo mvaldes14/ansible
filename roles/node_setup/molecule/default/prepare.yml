@@ -61,3 +61,23 @@
       loop:
         - cilium-cni
         - loopback
+
+    - name: Create Local Oh My Zsh Source Directory
+      ansible.builtin.file:
+        path: /tmp/git-src/ohmyzsh/templates
+        state: directory
+        mode: "0755"
+
+    - name: Initialize Local Oh My Zsh Repository
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          git init -b master .
+          git config user.email molecule@example.com
+          git config user.name Molecule
+          printf '# test zshrc\n' > templates/zshrc.zsh-template
+          git add .
+          git commit -m 'initial ohmyzsh'
+        chdir: /tmp/git-src/ohmyzsh
+        creates: /tmp/git-src/ohmyzsh/.git
+        executable: /bin/bash

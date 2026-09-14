@@ -1,7 +1,9 @@
 Role Name
 =========
 
-A brief description of the role goes here.
+Common Linux node baseline for homelab machines.
+
+Includes SSH access, MOTD, CNI path setup, zsh, and Oh My Zsh.
 
 Requirements
 ------------

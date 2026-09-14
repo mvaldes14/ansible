@@ -4,6 +4,8 @@
   block:
     - name: Setup Structure
       ansible.builtin.import_tasks: structure.yml
+    - name: Setup User Shell
+      ansible.builtin.import_tasks: shell.yml
     - name: Setup SSH Access
       ansible.builtin.import_tasks: access.yml
     - name: Setup MOTD

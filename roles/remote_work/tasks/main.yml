@@ -1,0 +1,162 @@
+---
+- name: Install Remote Work Packages
+  tags:
+    - remote_work
+    - pkg
+  become: true
+  ansible.builtin.apt:
+    name: "{{ remote_work_packages }}"
+    state: present
+    update_cache: true
+
+- name: Setup Remote Work CLIs
+  tags:
+    - remote_work
+    - cli
+  block:
+    - name: Install Herdr
+      become: true
+      become_user: "{{ remote_work_user }}"
+      ansible.builtin.shell:
+        cmd: "set -o pipefail && curl -fsSL {{ remote_work_herdr_install_script }} | sh"
+        executable: /bin/bash
+        creates: "{{ remote_work_home }}/.local/bin/herdr"
+      environment:
+        HOME: "{{ remote_work_home }}"
+      when: remote_work_install_herdr
+
+    - name: Link Herdr Into System Path
+      become: true
+      ansible.builtin.file:
+        src: "{{ remote_work_home }}/.local/bin/herdr"
+        dest: /usr/local/bin/herdr
+        state: link
+        force: true
+      when: remote_work_install_herdr
+
+    - name: Install Pi
+      become: true
+      become_user: "{{ remote_work_user }}"
+      ansible.builtin.shell:
+        cmd: "set -o pipefail && curl -fsSL {{ remote_work_pi_install_script }} | sh"
+        executable: /bin/bash
+        creates: "{{ remote_work_home }}/.local/share/pi-node"
+      environment:
+        HOME: "{{ remote_work_home }}"
+      when: remote_work_install_pi
+
+    - name: Link Pi Into System Path
+      become: true
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          pi_bin="$(find {{ remote_work_home }}/.local/share/pi-node -path '*/bin/pi' -type f | sort -V | tail -n 1)"
+          ln -sf "$pi_bin" /usr/local/bin/pi
+        executable: /bin/bash
+        creates: /usr/local/bin/pi
+      when: remote_work_install_pi
+
+    - name: Install Obsidian Headless
+      become: true
+      ansible.builtin.command:
+        cmd: "{{ remote_work_npm_bin }} install -g obsidian-headless"
+        creates: /usr/local/bin/ob
+      when: remote_work_install_obsidian_headless
+
+- name: Setup Remote Work Directories
+  tags:
+    - remote_work
+    - structure
+  block:
+    - name: Create Workspace Directory
+      ansible.builtin.file:
+        path: "{{ remote_work_workspace_dir }}"
+        state: directory
+        owner: "{{ remote_work_user }}"
+        group: "{{ remote_work_user }}"
+        mode: "0755"
+
+    - name: Create Obsidian Parent Directory
+      ansible.builtin.file:
+        path: "{{ remote_work_obsidian_vault_dir | dirname }}"
+        state: directory
+        owner: "{{ remote_work_user }}"
+        group: "{{ remote_work_user }}"
+        mode: "0755"
+
+- name: Sync Remote Work Git Repositories
+  tags:
+    - remote_work
+    - git
+  become: true
+  become_user: "{{ remote_work_user }}"
+  block:
+    - name: Clone Core Work Repositories
+      ansible.builtin.git:
+        repo: "{{ item.repo }}"
+        dest: "{{ item.dest }}"
+        version: "{{ item.version | default('main') }}"
+        update: false
+        accept_hostkey: true
+      loop: "{{ remote_work_core_repositories }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Pull Core Work Repositories
+      ansible.builtin.git:
+        repo: "{{ item.repo }}"
+        dest: "{{ item.dest }}"
+        version: "{{ item.version | default('main') }}"
+        update: true
+        accept_hostkey: true
+      loop: "{{ remote_work_core_repositories }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Clone Obsidian Vault Repository
+      ansible.builtin.git:
+        repo: "{{ remote_work_obsidian_vault_repo }}"
+        dest: "{{ remote_work_obsidian_vault_dir }}"
+        version: main
+        update: false
+        accept_hostkey: true
+      when: remote_work_obsidian_vault_repo | length > 0
+
+    - name: Pull Obsidian Vault Repository
+      ansible.builtin.git:
+        repo: "{{ remote_work_obsidian_vault_repo }}"
+        dest: "{{ remote_work_obsidian_vault_dir }}"
+        version: main
+        update: true
+        accept_hostkey: true
+      when: remote_work_obsidian_vault_repo | length > 0
+
+    - name: Clone Extra Work Repositories
+      ansible.builtin.git:
+        repo: "{{ item }}"
+        dest: "{{ remote_work_workspace_dir }}/{{ item | basename | regex_replace('\\.git$', '') }}"
+        version: main
+        update: false
+        accept_hostkey: true
+      loop: "{{ remote_work_repositories }}"
+
+    - name: Pull Extra Work Repositories
+      ansible.builtin.git:
+        repo: "{{ item }}"
+        dest: "{{ remote_work_workspace_dir }}/{{ item | basename | regex_replace('\\.git$', '') }}"
+        version: main
+        update: true
+        accept_hostkey: true
+      loop: "{{ remote_work_repositories }}"
+
+- name: Bootstrap AI Configuration
+  tags:
+    - remote_work
+    - ai
+  become: true
+  become_user: "{{ remote_work_user }}"
+  ansible.builtin.command:
+    cmd: "{{ remote_work_ai_bootstrap_path }}"
+    chdir: "{{ remote_work_dotfiles_dir }}"
+  changed_when: false
+  when: remote_work_run_ai_bootstrap
