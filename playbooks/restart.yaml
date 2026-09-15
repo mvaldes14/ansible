@@ -3,6 +3,7 @@
   serial: 1
   vars:
       ansible_python_interpreter: /usr/bin/python3
+      local_kubernetes_python: "{{ playbook_dir }}/../.venv/bin/python"
   roles:
       - node_setup
   tasks:
@@ -21,8 +22,12 @@
                 force: true
                 wait_timeout: 120
         delegate_to: localhost
+        register: drain_result
+        retries: 3
+        delay: 10
+        until: drain_result is succeeded
         vars:
-            ansible_python_interpreter: "{{ ansible_playbook_python }}"
+            ansible_python_interpreter: "{{ local_kubernetes_python }}"
       - name: Reboot the machine
         become: true
         ansible.builtin.reboot:
@@ -30,10 +35,32 @@
             pre_reboot_delay: 10
             post_reboot_delay: 30
             test_command: whoami
+      - name: Wait For Node Ready
+        kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Node
+            name: "{{ inventory_hostname }}"
+        delegate_to: localhost
+        register: node_info
+        retries: 30
+        delay: 10
+        until: >-
+            node_info is succeeded and
+            (node_info.resources | default([]) | length) == 1 and
+            ((node_info.resources[0].status.conditions | default([]) |
+            selectattr('type', 'equalto', 'Ready') |
+            selectattr('status', 'equalto', 'True') |
+            list | length) > 0)
+        vars:
+            ansible_python_interpreter: "{{ local_kubernetes_python }}"
       - name: Uncordon Nodes
         kubernetes.core.k8s_drain:
             name: "{{ inventory_hostname }}"
             state: uncordon
         delegate_to: localhost
+        register: uncordon_result
+        retries: 5
+        delay: 15
+        until: uncordon_result is succeeded
         vars:
-            ansible_python_interpreter: "{{ ansible_playbook_python }}"
+            ansible_python_interpreter: "{{ local_kubernetes_python }}"

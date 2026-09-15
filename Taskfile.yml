@@ -108,6 +108,16 @@ tasks:
     cmds:
       - for p in playbooks/*.yaml; do echo "==> $p"; {{.PLAYBOOK}} --syntax-check "$p"; done
 
+  restart:
+    desc: Drain, reboot, and uncordon homelab nodes
+    preconditions:
+      - sh: test -x "{{.VENV}}/bin/python"
+        msg: 'Missing {{.VENV}}. Run "task deps" first.'
+      - sh: '{{.VENV}}/bin/python -c "import kubernetes"'
+        msg: 'Missing Python kubernetes package. Run "task deps" first.'
+    cmds:
+      - '{{.PLAYBOOK}} -i inventory/homelab.ini playbooks/restart.yaml'
+
   deps:
     desc: Rebuild {{.VENV}} with uv and install python + galaxy dependencies
     preconditions:
