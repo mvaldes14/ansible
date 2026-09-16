@@ -3,5 +3,6 @@
   gather_facts: true
   vars:
     oh_my_zsh_repo: file:///tmp/git-src/ohmyzsh
+    fzf_tab_plugin_repo: file:///tmp/git-src/fzf-tab
   roles:
     - role: node_setup

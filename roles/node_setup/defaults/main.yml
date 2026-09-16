@@ -11,6 +11,18 @@ user_login_shell: /usr/bin/zsh
 install_oh_my_zsh: true
 oh_my_zsh_repo: https://github.com/ohmyzsh/ohmyzsh.git
 oh_my_zsh_dir: "{{ username_home }}/.oh-my-zsh"
+oh_my_zsh_custom_dir: "{{ oh_my_zsh_dir }}/custom"
+oh_my_zsh_plugins:
+  - git
+  - fzf
+  - fzf-tab
+  - zoxide
+fzf_base_dir: /usr/share/doc/fzf/examples
+fzf_tab_plugin_repo: https://github.com/Aloxaf/fzf-tab.git
+fzf_tab_plugin_dir: "{{ oh_my_zsh_custom_dir }}/plugins/fzf-tab"
+shell_extra_packages:
+  - fzf
+  - zoxide
 
 # Enable/disable pihole service management
 pihole_enabled: false

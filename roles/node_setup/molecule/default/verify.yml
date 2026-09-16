@@ -92,6 +92,42 @@
             fail_msg: "Oh My Zsh or .zshrc is not installed for {{ username }}"
             success_msg: "Oh My Zsh and .zshrc are installed for {{ username }}"
 
+        - name: Check Shell Tool Commands Exist
+          ansible.builtin.stat:
+            path: "/usr/bin/{{ item }}"
+          register: shell_tool_commands
+          loop:
+            - fzf
+            - zoxide
+
+        - name: Assert Shell Tool Commands Exist
+          ansible.builtin.assert:
+            that:
+              - item.stat.exists
+              - item.stat.executable
+            fail_msg: "{{ item.item }} is not installed or is not executable"
+            success_msg: "{{ item.item }} is installed and executable"
+          loop: "{{ shell_tool_commands.results }}"
+
+        - name: Check fzf-tab Plugin Exists
+          ansible.builtin.stat:
+            path: "/home/{{ username }}/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh"
+          register: fzf_tab_plugin
+
+        - name: Read Zshrc Content
+          ansible.builtin.slurp:
+            src: "/home/{{ username }}/.zshrc"
+          register: zshrc_content
+
+        - name: Assert Oh My Zsh Plugin Configuration
+          ansible.builtin.assert:
+            that:
+              - fzf_tab_plugin.stat.exists
+              - "'plugins=(git fzf fzf-tab zoxide)' in zshrc_content.content | b64decode"
+              - "'export FZF_BASE=/usr/share/doc/fzf/examples' in zshrc_content.content | b64decode"
+            fail_msg: "Oh My Zsh fzf/fzf-tab/zoxide configuration is incomplete"
+            success_msg: "Oh My Zsh shell plugins and fzf base are configured"
+
         - name: Check Sudoers File Exists
           ansible.builtin.stat:
             path: /etc/sudoers.d/sudoers-nopasswd

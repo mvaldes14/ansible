@@ -4,9 +4,7 @@
   block:
     - name: Install Shell Packages
       ansible.builtin.apt:
-        name:
-          - git
-          - zsh
+        name: "{{ ['git', 'zsh'] + shell_extra_packages }}"
         state: present
         update_cache: true
 
@@ -35,4 +33,37 @@
         group: "{{ username }}"
         mode: "0644"
         force: false
+      when: install_oh_my_zsh
+
+    - name: Install fzf-tab Oh My Zsh Plugin
+      become: true
+      become_user: "{{ username }}"
+      ansible.builtin.git:
+        repo: "{{ fzf_tab_plugin_repo }}"
+        dest: "{{ fzf_tab_plugin_dir }}"
+        version: master
+        update: true
+        accept_hostkey: true
+      when: install_oh_my_zsh
+
+    - name: Configure Oh My Zsh Plugins
+      ansible.builtin.lineinfile:
+        path: "{{ username_home }}/.zshrc"
+        regexp: '^\s*plugins='
+        line: "plugins=({{ oh_my_zsh_plugins | join(' ') }})"
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: "0644"
+      when: install_oh_my_zsh
+
+    - name: Configure fzf Base Directory
+      ansible.builtin.blockinfile:
+        path: "{{ username_home }}/.zshrc"
+        marker: "# {mark} ANSIBLE MANAGED FZF CONFIG"
+        insertbefore: '^source .*oh-my-zsh\.sh'
+        block: |
+          export FZF_BASE={{ fzf_base_dir }}
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: "0644"
       when: install_oh_my_zsh
