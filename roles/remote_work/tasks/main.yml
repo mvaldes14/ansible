@@ -34,26 +34,36 @@
         force: true
       when: remote_work_install_herdr
 
+    - name: Check Node.js Version For Pi
+      become: true
+      become_user: "{{ remote_work_user }}"
+      ansible.builtin.command:
+        cmd: >-
+          node -e "const [maj,min,patch] = process.versions.node.split('.').map(Number);
+          process.exit(maj > 22 || (maj === 22 && (min > 19 || (min === 19 && patch >= 0))) ? 0 : 1)"
+      changed_when: false
+      when: remote_work_install_pi
+
     - name: Install Pi
       become: true
       become_user: "{{ remote_work_user }}"
       ansible.builtin.shell:
         cmd: "set -o pipefail && curl -fsSL {{ remote_work_pi_install_script }} | sh"
         executable: /bin/bash
-        creates: "{{ remote_work_home }}/.local/share/pi-node"
+        creates: "{{ remote_work_home }}/.local/bin/pi"
       environment:
         HOME: "{{ remote_work_home }}"
+        PATH: "{{ remote_work_home }}/.local/bin:{{ ansible_env.PATH }}"
+        TERM: dumb
       when: remote_work_install_pi
 
     - name: Link Pi Into System Path
       become: true
-      ansible.builtin.shell:
-        cmd: |
-          set -euo pipefail
-          pi_bin="$(find {{ remote_work_home }}/.local/share/pi-node -path '*/bin/pi' -type f | sort -V | tail -n 1)"
-          ln -sf "$pi_bin" /usr/local/bin/pi
-        executable: /bin/bash
-        creates: /usr/local/bin/pi
+      ansible.builtin.file:
+        src: "{{ remote_work_home }}/.local/bin/pi"
+        dest: /usr/local/bin/pi
+        state: link
+        force: true
       when: remote_work_install_pi
 
     - name: Install Obsidian Headless
