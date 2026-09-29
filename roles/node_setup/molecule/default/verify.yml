@@ -80,8 +80,13 @@
 
         - name: Check Zshrc Exists
           ansible.builtin.stat:
-            path: "/home/{{ username }}/.zshrc"
+            path: "/home/{{ username }}/.config/zsh/.zshrc"
           register: zshrc_file
+
+        - name: Check Legacy Home Zshrc Is Absent
+          ansible.builtin.stat:
+            path: "/home/{{ username }}/.zshrc"
+          register: legacy_zshrc_file
 
         - name: Assert Oh My Zsh Is Installed
           ansible.builtin.assert:
@@ -89,8 +94,9 @@
               - oh_my_zsh_checkout.stat.exists
               - zshrc_file.stat.exists
               - zshrc_file.stat.pw_name == username
-            fail_msg: "Oh My Zsh or .zshrc is not installed for {{ username }}"
-            success_msg: "Oh My Zsh and .zshrc are installed for {{ username }}"
+              - not legacy_zshrc_file.stat.exists
+            fail_msg: "Oh My Zsh or ZDOTDIR .zshrc is not installed correctly for {{ username }}"
+            success_msg: "Oh My Zsh and ZDOTDIR .zshrc are installed for {{ username }}"
 
         - name: Check Shell Tool Commands Exist
           ansible.builtin.stat:
@@ -116,17 +122,20 @@
 
         - name: Read Zshrc Content
           ansible.builtin.slurp:
-            src: "/home/{{ username }}/.zshrc"
+            src: "/home/{{ username }}/.config/zsh/.zshrc"
           register: zshrc_content
 
-        - name: Assert Oh My Zsh Plugin Configuration
+        - name: Assert Oh My Zsh Configuration
           ansible.builtin.assert:
             that:
               - fzf_tab_plugin.stat.exists
+              - "'ZSH_THEME=\"bira\"' in zshrc_content.content | b64decode"
               - "'plugins=(git fzf fzf-tab zoxide)' in zshrc_content.content | b64decode"
+              - "'node-*-linux-x64/bin(N)' in zshrc_content.content | b64decode"
+              - "'path=(\"$HOME/.local/bin\" \"$HOME/bin\" \"$HOME/scripts\" $path)' in zshrc_content.content | b64decode"
               - "'export FZF_BASE=/usr/share/doc/fzf/examples' in zshrc_content.content | b64decode"
-            fail_msg: "Oh My Zsh fzf/fzf-tab/zoxide configuration is incomplete"
-            success_msg: "Oh My Zsh shell plugins and fzf base are configured"
+            fail_msg: "Oh My Zsh theme, path, or plugin configuration is incomplete"
+            success_msg: "Oh My Zsh theme, path, shell plugins, and fzf base are configured"
 
         - name: Check Sudoers File Exists
           ansible.builtin.stat:

@@ -24,15 +24,30 @@
         accept_hostkey: true
       when: install_oh_my_zsh
 
+    - name: Create Zsh Config Directory
+      ansible.builtin.file:
+        path: "{{ zshrc_path | dirname }}"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: "0755"
+      when: install_oh_my_zsh
+
     - name: Install Default Zshrc
       ansible.builtin.copy:
         src: "{{ oh_my_zsh_dir }}/templates/zshrc.zsh-template"
-        dest: "{{ username_home }}/.zshrc"
+        dest: "{{ zshrc_path }}"
         remote_src: true
         owner: "{{ username }}"
         group: "{{ username }}"
         mode: "0644"
         force: false
+      when: install_oh_my_zsh
+
+    - name: Remove Legacy Home Zshrc
+      ansible.builtin.file:
+        path: "{{ username_home }}/.zshrc"
+        state: absent
       when: install_oh_my_zsh
 
     - name: Install fzf-tab Oh My Zsh Plugin
@@ -46,9 +61,20 @@
         accept_hostkey: true
       when: install_oh_my_zsh
 
+    - name: Configure Oh My Zsh Theme
+      ansible.builtin.lineinfile:
+        path: "{{ zshrc_path }}"
+        regexp: '^\s*ZSH_THEME='
+        line: "ZSH_THEME=\"{{ oh_my_zsh_theme }}\""
+        insertbefore: '^source .*oh-my-zsh\.sh'
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: "0644"
+      when: install_oh_my_zsh
+
     - name: Configure Oh My Zsh Plugins
       ansible.builtin.lineinfile:
-        path: "{{ username_home }}/.zshrc"
+        path: "{{ zshrc_path }}"
         regexp: '^\s*plugins='
         line: "plugins=({{ oh_my_zsh_plugins | join(' ') }})"
         owner: "{{ username }}"
@@ -56,9 +82,28 @@
         mode: "0644"
       when: install_oh_my_zsh
 
+    - name: Configure Shell Path
+      ansible.builtin.blockinfile:
+        path: "{{ zshrc_path }}"
+        marker: "# {mark} ANSIBLE MANAGED PATH CONFIG"
+        insertbefore: '^source .*oh-my-zsh\.sh'
+        block: |
+          typeset -U path PATH
+          for _pi_node_bin in "$HOME"/.local/share/pi-node/node-*-linux-x64/bin(N); do
+            path=("$_pi_node_bin" $path)
+            break
+          done
+          path=("$HOME/.local/bin" "$HOME/bin" "$HOME/scripts" $path)
+          export PATH
+          unset _pi_node_bin
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: "0644"
+      when: install_oh_my_zsh
+
     - name: Configure fzf Base Directory
       ansible.builtin.blockinfile:
-        path: "{{ username_home }}/.zshrc"
+        path: "{{ zshrc_path }}"
         marker: "# {mark} ANSIBLE MANAGED FZF CONFIG"
         insertbefore: '^source .*oh-my-zsh\.sh'
         block: |
