@@ -1,0 +1,58 @@
+---
+- name: Assert Atuin Architecture Is Supported
+  ansible.builtin.assert:
+    that: ansible_architecture in node_setup_atuin_arch_map
+    fail_msg: "Unsupported Atuin architecture: {{ ansible_architecture }}"
+
+- name: Check Atuin Version
+  ansible.builtin.command: /usr/local/bin/atuin --version
+  register: node_setup_atuin_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install Pinned Atuin Release
+  when:
+    - not ansible_check_mode
+    - node_setup_atuin_installed.rc != 0 or node_setup_atuin_installed.stdout | trim != 'atuin ' ~ node_setup_atuin_version
+  block:
+    - name: Create Atuin Download Directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: ansible-atuin-
+      register: node_setup_atuin_temp
+
+    - name: Download Verified Atuin Archive
+      ansible.builtin.get_url:
+        url: "{{ node_setup_atuin_url }}"
+        dest: "{{ node_setup_atuin_temp.path }}/atuin.tar.gz"
+        checksum: "sha256:{{ node_setup_atuin_url }}.sha256"
+        mode: "0600"
+
+    - name: Extract Atuin Archive
+      ansible.builtin.unarchive:
+        src: "{{ node_setup_atuin_temp.path }}/atuin.tar.gz"
+        dest: "{{ node_setup_atuin_temp.path }}"
+        remote_src: true
+
+    - name: Install Atuin Binary
+      ansible.builtin.copy:
+        src: "{{ node_setup_atuin_temp.path }}/{{ node_setup_atuin_archive }}/atuin"
+        dest: /usr/local/bin/atuin
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Verify Installed Atuin Version
+      ansible.builtin.command: /usr/local/bin/atuin --version
+      register: node_setup_atuin_verified
+      changed_when: false
+      failed_when: node_setup_atuin_verified.stdout | trim != 'atuin ' ~ node_setup_atuin_version
+
+  always:
+    - name: Remove Atuin Download Directory
+      ansible.builtin.file:
+        path: "{{ node_setup_atuin_temp.path }}"
+        state: absent
+      when: node_setup_atuin_temp.path is defined

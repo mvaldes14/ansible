@@ -1,0 +1,25 @@
+---
+- name: Prepare Kubernetes Node Fixtures
+  hosts: all
+  become: true
+  tasks:
+    - name: Create k3s CNI directory
+      ansible.builtin.file:
+        path: /var/lib/rancher/k3s/data/cni
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Seed k3s CNI plugin binaries
+      ansible.builtin.copy:
+        dest: "/var/lib/rancher/k3s/data/cni/{{ item }}"
+        mode: "0755"
+        owner: root
+        group: root
+        content: |
+          #!/bin/sh
+          echo "stub {{ item }}"
+      loop:
+        - cilium-cni
+        - loopback

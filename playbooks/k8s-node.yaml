@@ -1,0 +1,6 @@
+---
+- name: Configure Kubernetes Node Integration
+  hosts: k8s_nodes
+  gather_facts: true
+  roles:
+    - role: k8s_node

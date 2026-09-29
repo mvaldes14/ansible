@@ -1,0 +1,7 @@
+---
+# Host integration for existing k3s nodes; this role does not install k3s.
+k8s_node_cni_source_dir: /var/lib/rancher/k3s/data/cni
+k8s_node_cni_bin_dir: /opt/cni/bin
+k8s_node_cni_plugins:
+  - cilium-cni
+  - loopback

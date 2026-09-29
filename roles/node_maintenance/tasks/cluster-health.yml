@@ -1,0 +1,28 @@
+---
+- name: Read Cluster Nodes
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+  delegate_to: localhost
+  vars:
+    ansible_python_interpreter: "{{ node_maintenance_python }}"
+  register: node_maintenance_cluster
+
+- name: Require A Healthy Cluster
+  ansible.builtin.assert:
+    that:
+      - node_maintenance_cluster.resources | length > 0
+      - node_maintenance_node_name in (node_maintenance_cluster.resources | map(attribute='metadata.name') | list)
+    fail_msg: "Cluster is empty or target node is absent; refusing maintenance."
+
+- name: Require Every Node To Be Ready
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item.status.conditions | default([]) |
+        selectattr('type', 'equalto', 'Ready') |
+        selectattr('status', 'equalto', 'True') | list | length) == 1
+    fail_msg: "Node {{ item.metadata.name }} is not Ready; stopping rolling maintenance."
+  loop: "{{ node_maintenance_cluster.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"

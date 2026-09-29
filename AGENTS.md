@@ -41,7 +41,7 @@ task lint
 task syntax
 
 # Lint specific file
-ansible-lint playbooks/restart.yaml
+ansible-lint playbooks/bootstrap.yaml
 
 # Lint specific role
 ansible-lint roles/node_setup/
@@ -51,16 +51,16 @@ ansible-lint roles/node_setup/
 
 ```bash
 # Run playbook against inventory
-ansible-playbook -i inventory/homelab.ini playbooks/restart.yaml
+ansible-playbook -i inventory/homelab.ini playbooks/bootstrap.yaml
 
 # Dry run (check mode)
-ansible-playbook -i inventory/homelab.ini playbooks/restart.yaml --check
+ansible-playbook -i inventory/homelab.ini playbooks/bootstrap.yaml --check
 
 # Run with specific tags
-ansible-playbook -i inventory/homelab.ini playbooks/restart.yaml --tags "pkg,motd"
+ansible-playbook -i inventory/homelab.ini playbooks/bootstrap.yaml --tags "pkg,motd"
 
 # Limit to specific hosts
-ansible-playbook -i inventory/homelab.ini playbooks/restart.yaml --limit eva01
+ansible-playbook -i inventory/homelab.ini playbooks/bootstrap.yaml --limit eva01
 ```
 
 ### Testing with Molecule

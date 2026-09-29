@@ -1,10 +1,12 @@
 # remote_work
 
-Prepares Linux machines for remote work sessions.
+Prepares Linux machines for remote work sessions after `bootstrap.yaml`.
+This playbook does not rerun the node baseline. `node_setup` owns the dotfiles
+checkout and shell links; this role only consumes its AI bootstrap script.
 
 ## What it does
 
-- Installs core CLI/dev packages (`git`, `tmux`, `neovim`, `ripgrep`, `fd`, `fzf`, `jq`, `bat`, `eza`, `atuin`, `zoxide`, `stow`, Python venv support, etc.)
+- Installs remote-dev packages (`git`, `tmux`, `neovim`, `ripgrep`, `fd`, `jq`, `bat`, `eza`, `atuin`, `stow`, Python venv support, etc.); baseline shell setup (`zsh`, `fzf`, `zoxide`, Starship, Oh My Zsh) lives in `node_setup`
 - Installs Node.js 22 from NodeSource before installing pi, because pi's installer requires Node.js 22.19.0+ in non-interactive sessions
 - Installs Herdr with `curl -fsSL https://herdr.dev/install.sh | sh`
 - Installs mise with `curl -fsSL https://mise.run | sh` and links it into `/usr/local/bin`
@@ -23,7 +25,7 @@ Prepares Linux machines for remote work sessions.
 remote_work_user: mvaldes
 remote_work_workspace_dir: /home/mvaldes/git
 remote_work_sync_repositories: true
-remote_work_dotfiles_repo: git@github.com:mvaldes14/dotfiles.git
+remote_work_dotfiles_dir: /home/mvaldes/git/dotfiles
 remote_work_manage_nodejs: true
 remote_work_nodejs_major_version: 22
 remote_work_nodejs_min_version: 22.19.0
@@ -39,10 +41,6 @@ remote_work_pi_curl_connect_timeout: 20
 remote_work_pi_curl_max_time: 120
 remote_work_install_obsidian_headless: true
 remote_work_core_repositories:
-  - name: dotfiles
-    repo: git@github.com:mvaldes14/dotfiles.git
-    dest: /home/mvaldes/git/dotfiles
-    version: main
   - name: ansible
     repo: git@github.com:mvaldes14/ansible.git
     dest: /home/mvaldes/git/ansible

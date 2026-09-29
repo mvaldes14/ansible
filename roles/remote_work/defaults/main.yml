@@ -8,15 +8,14 @@ remote_work_workspace_dir: "{{ remote_work_home }}/git"
 remote_work_obsidian_vault_dir: "{{ remote_work_home }}/Obsidian/wiki"
 
 # Core Linux packages expected by remote development and repo work.
+# Baseline shell packages (zsh, fzf, zoxide, Starship, Oh My Zsh) live in node_setup.
 remote_work_packages:
-  - atuin
   - bat
   - ca-certificates
   - curl
   - direnv
   - eza
   - fd-find
-  - fzf
   - gh
   - git
   - jq
@@ -31,7 +30,6 @@ remote_work_packages:
   - unzip
   - wget
   - yq
-  - zoxide
 
 # Pi requires Node.js >= 22.19.0 when running the installer non-interactively.
 remote_work_manage_nodejs: true
@@ -63,13 +61,9 @@ remote_work_npm_bin: npm
 # These are cloned when missing and git-pulled on every playbook execution.
 # Disable for first-pass bootstrap before GitHub SSH keys are authorized.
 remote_work_sync_repositories: true
-remote_work_dotfiles_repo: git@github.com:mvaldes14/dotfiles.git
-remote_work_dotfiles_dir: "{{ remote_work_workspace_dir }}/dotfiles"
+# node_setup owns the dotfiles checkout and shell links.
+remote_work_dotfiles_dir: "{{ node_setup_dotfiles_dir | default(remote_work_home ~ '/git/dotfiles') }}"
 remote_work_core_repositories:
-  - name: dotfiles
-    repo: "{{ remote_work_dotfiles_repo }}"
-    dest: "{{ remote_work_dotfiles_dir }}"
-    version: main
   - name: ansible
     repo: git@github.com:mvaldes14/ansible.git
     dest: "{{ remote_work_workspace_dir }}/ansible"

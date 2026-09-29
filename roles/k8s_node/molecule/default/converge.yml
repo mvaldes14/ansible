@@ -1,0 +1,5 @@
+---
+- name: Converge Kubernetes Integration
+  hosts: all
+  roles:
+    - role: k8s_node

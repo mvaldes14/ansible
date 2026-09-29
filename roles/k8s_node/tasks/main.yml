@@ -13,20 +13,34 @@
     # missing parent for us.
     - name: Create Containerd CNI Directory
       ansible.builtin.file:
-        path: "{{ containerd_cni_bin_dir }}"
+        path: "{{ k8s_node_cni_bin_dir }}"
         state: directory
         mode: "0755"
         owner: root
         group: root
 
+    - name: Inspect Existing CNI Paths
+      ansible.builtin.stat:
+        path: "{{ k8s_node_cni_bin_dir }}/{{ item }}"
+        follow: false
+      loop: "{{ k8s_node_cni_plugins }}"
+      register: k8s_node_cni_paths
+
+    - name: Refuse To Replace Existing CNI Binaries
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists or (item.stat.islnk | default(false) and item.stat.lnk_source | default('') == k8s_node_cni_source_dir ~ '/' ~ item.item)
+        fail_msg: "Refusing to replace existing CNI path for {{ item.item }}"
+      loop: "{{ k8s_node_cni_paths.results }}"
+
     - name: Link CNI Plugins
       ansible.builtin.file:
-        src: "{{ k3s_cni_bin_dir }}/{{ item }}"
-        dest: "{{ containerd_cni_bin_dir }}/{{ item }}"
+        src: "{{ k8s_node_cni_source_dir }}/{{ item }}"
+        dest: "{{ k8s_node_cni_bin_dir }}/{{ item }}"
         state: link
         # The target is installed by the Cilium DaemonSet, which may not have run
         # yet on a freshly joined node. Link anyway so the path is correct the
         # moment the binary lands.
         force: true
         follow: false
-      loop: "{{ cni_linked_plugins }}"
+      loop: "{{ k8s_node_cni_plugins }}"
