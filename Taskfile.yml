@@ -9,6 +9,7 @@ vars:
   VENV: .venv
   # Role to act on. Override per invocation: task converge ROLE=node_setup
   ROLE: node_setup
+  LIMIT: ''
   # Roles that actually ship a molecule scenario.
   MOLECULE_ROLES:
     sh: ls -d roles/*/molecule 2>/dev/null | sed 's|roles/||; s|/molecule||' | tr '\n' ' '
@@ -98,6 +99,11 @@ tasks:
       - for: { var: MOLECULE_ROLES }
         cmd: task test ROLE={{.ITEM}}
 
+  test-contracts:
+    desc: Check maintenance safety contracts without contacting hosts
+    cmds:
+      - python3 -m unittest discover -s tests -v
+
   lint:
     desc: Run ansible-lint across the repo
     cmds:
@@ -106,17 +112,47 @@ tasks:
   syntax:
     desc: Syntax-check every playbook
     cmds:
-      - for p in playbooks/*.yaml; do echo "==> $p"; {{.PLAYBOOK}} --syntax-check "$p"; done
+      - set -e; for p in playbooks/*.yaml; do echo "==> $p"; {{.PLAYBOOK}} --syntax-check "$p"; done
 
-  restart:
-    desc: Drain, reboot, and uncordon homelab nodes
+  bootstrap:
+    desc: Bootstrap baseline Linux configuration (requires LIMIT)
     preconditions:
+      - sh: test -n "{{.LIMIT}}"
+        msg: 'Set LIMIT=<host-or-group> explicitly.'
+    cmds:
+      - '{{.PLAYBOOK}} -i inventory/homelab.ini playbooks/bootstrap.yaml --limit "{{.LIMIT}}" {{.CLI_ARGS}}'
+
+  k8s-node:
+    desc: Configure Kubernetes host integration (requires LIMIT)
+    preconditions:
+      - sh: test -n "{{.LIMIT}}"
+        msg: 'Set LIMIT=<host-or-group> explicitly.'
+    cmds:
+      - '{{.PLAYBOOK}} -i inventory/homelab.ini playbooks/k8s-node.yaml --limit "{{.LIMIT}}" {{.CLI_ARGS}}'
+
+  remote-work:
+    desc: Configure remote work tooling after bootstrap (requires LIMIT)
+    preconditions:
+      - sh: test -n "{{.LIMIT}}"
+        msg: 'Set LIMIT=<host-or-group> explicitly.'
+    cmds:
+      - '{{.PLAYBOOK}} -i inventory/homelab.ini playbooks/remote-work.yaml --limit "{{.LIMIT}}" {{.CLI_ARGS}}'
+
+  maintenance:
+    desc: Roll package updates and required reboots (requires LIMIT)
+    deps: [check-maintenance]
+    cmds:
+      - '{{.PLAYBOOK}} -i inventory/homelab.ini playbooks/maintenance.yaml --limit "{{.LIMIT}}" {{.CLI_ARGS}}'
+
+  check-maintenance:
+    internal: true
+    preconditions:
+      - sh: test -n "{{.LIMIT}}"
+        msg: 'Set LIMIT=<host-or-group> explicitly.'
       - sh: test -x "{{.VENV}}/bin/python"
         msg: 'Missing {{.VENV}}. Run "task deps" first.'
       - sh: '{{.VENV}}/bin/python -c "import kubernetes"'
         msg: 'Missing Python kubernetes package. Run "task deps" first.'
-    cmds:
-      - '{{.PLAYBOOK}} -i inventory/homelab.ini playbooks/restart.yaml'
 
   deps:
     desc: Rebuild {{.VENV}} with uv and install python + galaxy dependencies

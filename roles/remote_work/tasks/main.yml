@@ -9,6 +9,82 @@
     state: present
     update_cache: true
 
+- name: Check Debian fd Binary
+  tags:
+    - remote_work
+    - pkg
+  ansible.builtin.stat:
+    path: /usr/bin/fdfind
+  register: remote_work_fdfind_binary
+
+- name: Link fd-find As fd
+  tags:
+    - remote_work
+    - pkg
+  become: true
+  ansible.builtin.file:
+    src: /usr/bin/fdfind
+    dest: /usr/local/bin/fd
+    state: link
+    force: true
+  when: remote_work_fdfind_binary.stat.exists
+
+- name: Check Debian bat Binary
+  tags:
+    - remote_work
+    - pkg
+  ansible.builtin.stat:
+    path: /usr/bin/batcat
+  register: remote_work_batcat_binary
+
+- name: Link batcat As bat
+  tags:
+    - remote_work
+    - pkg
+  become: true
+  ansible.builtin.file:
+    src: /usr/bin/batcat
+    dest: /usr/local/bin/bat
+    state: link
+    force: true
+  when: remote_work_batcat_binary.stat.exists
+
+- name: Setup Node.js Runtime
+  tags:
+    - remote_work
+    - pkg
+    - nodejs
+  become: true
+  when: remote_work_manage_nodejs
+  block:
+    - name: Check Node.js Version
+      ansible.builtin.command:
+        cmd: node --version
+      register: remote_work_nodejs_version
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Install NodeSource Repository
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail && curl -fsSL
+          --connect-timeout {{ remote_work_nodesource_curl_connect_timeout }}
+          --max-time {{ remote_work_nodesource_curl_max_time }}
+          {{ remote_work_nodesource_setup_script }} | bash -
+        executable: /bin/bash
+      changed_when: true
+      when:
+        - not ansible_check_mode
+        - remote_work_nodejs_version.rc != 0 or (remote_work_nodejs_version.stdout | regex_replace('^v', '')) is version(remote_work_nodejs_min_version, '<')
+
+    - name: Install Node.js
+      ansible.builtin.apt:
+        name: nodejs
+        state: latest
+        update_cache: true
+      when: not ansible_check_mode
+
 - name: Setup Remote Work CLIs
   tags:
     - remote_work
@@ -34,6 +110,54 @@
         force: true
       when: remote_work_install_herdr
 
+    - name: Install Mise
+      become: true
+      become_user: "{{ remote_work_user }}"
+      ansible.builtin.shell:
+        cmd: "set -o pipefail && curl -fsSL {{ remote_work_mise_install_script }} | sh"
+        executable: /bin/bash
+        creates: "{{ remote_work_mise_bin }}"
+      environment:
+        HOME: "{{ remote_work_home }}"
+      when: remote_work_install_mise
+
+    - name: Link Mise Into System Path
+      become: true
+      ansible.builtin.file:
+        src: "{{ remote_work_mise_bin }}"
+        dest: /usr/local/bin/mise
+        state: link
+        force: true
+      when: remote_work_install_mise
+
+    - name: Install Go Task
+      become: true
+      ansible.builtin.shell:
+        cmd: "set -o pipefail && curl -fsSL {{ remote_work_task_install_script }} | sh -s -- -d -b /usr/local/bin"
+        executable: /bin/bash
+        creates: /usr/local/bin/task
+      when: remote_work_install_task
+
+    - name: Check Pi Binary
+      become: true
+      become_user: "{{ remote_work_user }}"
+      ansible.builtin.shell:
+        cmd: "command -v pi"
+        executable: /bin/bash
+      register: remote_work_pi_binary
+      changed_when: false
+      failed_when: false
+      environment:
+        HOME: "{{ remote_work_home }}"
+        PATH: "/usr/local/bin:{{ remote_work_home }}/.local/bin:{{ remote_work_home }}/bin:/usr/bin:/bin"
+      when: remote_work_install_pi
+
+    - name: Check Pi Install Marker
+      ansible.builtin.stat:
+        path: "{{ remote_work_pi_install_marker }}"
+      register: remote_work_pi_marker
+      when: remote_work_install_pi
+
     - name: Check Node.js Version For Pi
       become: true
       become_user: "{{ remote_work_user }}"
@@ -48,14 +172,23 @@
       become: true
       become_user: "{{ remote_work_user }}"
       ansible.builtin.shell:
-        cmd: "set -o pipefail && curl -fsSL {{ remote_work_pi_install_script }} | sh"
+        cmd: >-
+          set -o pipefail && curl -fsSL
+          --connect-timeout {{ remote_work_pi_curl_connect_timeout }}
+          --max-time {{ remote_work_pi_curl_max_time }}
+          {{ remote_work_pi_install_script }} | sh
         executable: /bin/bash
-        creates: "{{ remote_work_home }}/.local/bin/pi"
+      async: "{{ remote_work_pi_install_timeout | int }}"
+      poll: 5
+      changed_when: true
       environment:
         HOME: "{{ remote_work_home }}"
         PATH: "{{ remote_work_home }}/.local/bin:{{ ansible_env.PATH }}"
         TERM: dumb
-      when: remote_work_install_pi
+      when:
+        - remote_work_install_pi
+        - remote_work_pi_binary.rc != 0
+        - not remote_work_pi_marker.stat.exists
 
     - name: Link Pi Into System Path
       become: true
@@ -66,12 +199,22 @@
         force: true
       when: remote_work_install_pi
 
+    - name: Check Obsidian Headless Binary
+      ansible.builtin.shell:
+        cmd: "command -v obsidian || command -v ob"
+        executable: /bin/bash
+      register: remote_work_obsidian_headless_binary
+      changed_when: false
+      failed_when: false
+      when: remote_work_install_obsidian_headless
+
     - name: Install Obsidian Headless
       become: true
       ansible.builtin.command:
         cmd: "{{ remote_work_npm_bin }} install -g obsidian-headless"
-        creates: /usr/local/bin/ob
-      when: remote_work_install_obsidian_headless
+      when:
+        - remote_work_install_obsidian_headless
+        - remote_work_obsidian_headless_binary.rc != 0
 
 - name: Setup Remote Work Directories
   tags:
@@ -100,6 +243,7 @@
     - git
   become: true
   become_user: "{{ remote_work_user }}"
+  when: remote_work_sync_repositories
   block:
     - name: Clone Core Work Repositories
       ansible.builtin.git:
@@ -159,6 +303,15 @@
         accept_hostkey: true
       loop: "{{ remote_work_repositories }}"
 
+- name: Check AI Bootstrap Script
+  tags:
+    - remote_work
+    - ai
+  ansible.builtin.stat:
+    path: "{{ remote_work_ai_bootstrap_path }}"
+  register: remote_work_ai_bootstrap_script
+  when: remote_work_run_ai_bootstrap
+
 - name: Bootstrap AI Configuration
   tags:
     - remote_work
@@ -169,4 +322,6 @@
     cmd: "{{ remote_work_ai_bootstrap_path }}"
     chdir: "{{ remote_work_dotfiles_dir }}"
   changed_when: false
-  when: remote_work_run_ai_bootstrap
+  when:
+    - remote_work_run_ai_bootstrap
+    - remote_work_ai_bootstrap_script.stat.exists

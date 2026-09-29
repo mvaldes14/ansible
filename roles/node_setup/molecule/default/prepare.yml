@@ -38,29 +38,42 @@
           security=2
           generated=2026-01-01T00:00:00Z
 
-    # The CNI task is a no-op unless the k3s data directory is present, which it
-    # never is in a plain container. Stand in for a joined node so the symlink
-    # path is actually exercised.
-    - name: Create k3s CNI directory
+    - name: Create Local Dotfiles Source Directory
       ansible.builtin.file:
-        path: /var/lib/rancher/k3s/data/cni
+        path: /tmp/git-src/dotfiles/.config/zsh
         state: directory
         mode: "0755"
-        owner: root
-        group: root
 
-    - name: Seed k3s CNI plugin binaries
-      ansible.builtin.copy:
-        dest: "/var/lib/rancher/k3s/data/cni/{{ item }}"
+    - name: Initialize Local Dotfiles Repository
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          git init -b main .
+          git config user.email molecule@example.com
+          git config user.name Molecule
+          printf 'export ZDOTDIR="$HOME/.config/zsh"\n' > .zshenv
+          printf 'export DOTFILES_STARTUP_LOADED=yes\n' > .config/zsh/.zshrc
+          git add .
+          git commit -m 'initial dotfiles'
+        chdir: /tmp/git-src/dotfiles
+        creates: /tmp/git-src/dotfiles/.git
+        executable: /bin/bash
+
+    - name: Seed Existing Shell Configuration For Migration
+      ansible.builtin.file:
+        path: /home/mvaldes/.config/zsh
+        state: directory
+        owner: mvaldes
+        group: mvaldes
         mode: "0755"
-        owner: root
-        group: root
-        content: |
-          #!/bin/sh
-          echo "stub {{ item }}"
-      loop:
-        - cilium-cni
-        - loopback
+
+    - name: Seed Existing Zshrc
+      ansible.builtin.copy:
+        dest: /home/mvaldes/.config/zsh/.zshrc
+        content: "# original user configuration\n"
+        owner: mvaldes
+        group: mvaldes
+        mode: "0644"
 
     - name: Create Local Oh My Zsh Source Directory
       ansible.builtin.file:

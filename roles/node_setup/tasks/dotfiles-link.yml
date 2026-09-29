@@ -1,0 +1,37 @@
+---
+- name: Inspect Existing Dotfile
+  ansible.builtin.stat:
+    path: "{{ node_setup_dotfile.dest }}"
+    follow: false
+  register: node_setup_dotfile_existing
+
+- name: Preserve Existing Dotfile
+  when:
+    - node_setup_dotfile_existing.stat.exists
+    - not (node_setup_dotfile_existing.stat.islnk | default(false) and node_setup_dotfile_existing.stat.lnk_source | default('') == node_setup_dotfile.src)
+  block:
+    - name: Inspect Dotfile Backup
+      ansible.builtin.stat:
+        path: "{{ node_setup_dotfile.dest }}.pre-ansible-dotfiles"
+        follow: false
+      register: node_setup_dotfile_backup
+
+    - name: Refuse To Overwrite Dotfile Backup
+      ansible.builtin.assert:
+        that: not node_setup_dotfile_backup.stat.exists
+        fail_msg: "Resolve {{ node_setup_dotfile.dest }}.pre-ansible-dotfiles before migrating again."
+
+    - name: Back Up Existing Dotfile
+      ansible.builtin.command:
+        argv:
+          - mv
+          - "{{ node_setup_dotfile.dest }}"
+          - "{{ node_setup_dotfile.dest }}.pre-ansible-dotfiles"
+      changed_when: true
+
+- name: Link Dotfile From Checkout
+  ansible.builtin.file:
+    src: "{{ node_setup_dotfile.src }}"
+    dest: "{{ node_setup_dotfile.dest }}"
+    state: link
+  when: not ansible_check_mode

@@ -1,0 +1,6 @@
+---
+- name: Bootstrap Linux Nodes
+  hosts: homelab_nodes
+  gather_facts: true
+  roles:
+    - role: node_setup

@@ -50,11 +50,33 @@
             follow: false
           register: herdr_system_link
 
-        - name: Check Pi System Link
+        - name: Check Mise Binary
           ansible.builtin.stat:
-            path: /usr/local/bin/pi
-            follow: true
-          register: pi_system_link
+            path: "{{ remote_work_home }}/.local/bin/mise"
+          register: mise_binary
+
+        - name: Check Mise System Link
+          ansible.builtin.stat:
+            path: /usr/local/bin/mise
+            follow: false
+          register: mise_system_link
+
+        - name: Check Go Task Binary
+          ansible.builtin.stat:
+            path: /usr/local/bin/task
+          register: task_binary
+
+        - name: Check Pi Binary
+          become: true
+          become_user: "{{ remote_work_user }}"
+          ansible.builtin.shell:
+            cmd: command -v pi
+            executable: /bin/bash
+          register: pi_binary
+          changed_when: false
+          environment:
+            HOME: "{{ remote_work_home }}"
+            PATH: "/usr/local/bin:{{ remote_work_home }}/.local/bin:{{ remote_work_home }}/bin:/usr/bin:/bin"
 
         - name: Check Obsidian Headless Binary
           ansible.builtin.stat:
@@ -67,12 +89,16 @@
               - herdr_binary.stat.exists
               - herdr_binary.stat.executable
               - herdr_system_link.stat.islnk
-              - pi_system_link.stat.exists
-              - pi_system_link.stat.executable
+              - mise_binary.stat.exists
+              - mise_binary.stat.executable
+              - mise_system_link.stat.islnk
+              - task_binary.stat.exists
+              - task_binary.stat.executable
+              - pi_binary.rc == 0
               - obsidian_headless_binary.stat.exists
               - obsidian_headless_binary.stat.executable
             fail_msg: "One or more remote work CLIs are missing"
-            success_msg: "Herdr, pi, and Obsidian Headless are installed"
+            success_msg: "Herdr, mise, Go Task, pi, and Obsidian Headless are installed"
 
     - name: Verify Remote Work Directories
       tags:

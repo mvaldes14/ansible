@@ -8,40 +8,62 @@ remote_work_workspace_dir: "{{ remote_work_home }}/git"
 remote_work_obsidian_vault_dir: "{{ remote_work_home }}/Obsidian/wiki"
 
 # Core Linux packages expected by remote development and repo work.
+# Baseline shell packages (zsh, fzf, zoxide, Starship, Oh My Zsh) live in node_setup.
 remote_work_packages:
+  - bat
   - ca-certificates
   - curl
+  - direnv
+  - eza
   - fd-find
-  - fzf
+  - gh
   - git
   - jq
   - neovim
-  - nodejs
-  - npm
   - openssh-client
   - python3
   - python3-venv
   - ripgrep
+  - stow
   - tmux
+  - tree
   - unzip
+  - wget
+  - yq
+
+# Pi requires Node.js >= 22.19.0 when running the installer non-interactively.
+remote_work_manage_nodejs: true
+remote_work_nodejs_major_version: 22
+remote_work_nodejs_min_version: 22.19.0
+remote_work_nodesource_setup_script: https://deb.nodesource.com/setup_22.x
+remote_work_nodesource_curl_connect_timeout: 20
+remote_work_nodesource_curl_max_time: 120
 
 # Remote helper CLIs installed on every remote work machine.
 remote_work_install_herdr: true
 remote_work_herdr_install_script: https://herdr.dev/install.sh
+remote_work_install_mise: true
+remote_work_mise_install_script: https://mise.run
+remote_work_mise_bin: "{{ remote_work_home }}/.local/bin/mise"
+remote_work_install_task: true
+remote_work_task_install_script: https://taskfile.dev/install.sh
 remote_work_install_pi: true
 remote_work_pi_install_script: https://pi.dev/install.sh
+remote_work_pi_install_marker: "{{ remote_work_home }}/.local/share/pi-node"
+# Bound the pi installer so a slow network or stuck installer does not hang the play.
+remote_work_pi_install_timeout: 300
+remote_work_pi_curl_connect_timeout: 20
+remote_work_pi_curl_max_time: 120
 remote_work_install_obsidian_headless: true
 remote_work_npm_bin: npm
 
 # Core repos that should exist on every remote work machine.
 # These are cloned when missing and git-pulled on every playbook execution.
-remote_work_dotfiles_repo: git@github.com:mvaldes14/dotfiles.git
-remote_work_dotfiles_dir: "{{ remote_work_workspace_dir }}/dotfiles"
+# Disable for first-pass bootstrap before GitHub SSH keys are authorized.
+remote_work_sync_repositories: true
+# node_setup owns the dotfiles checkout and shell links.
+remote_work_dotfiles_dir: "{{ node_setup_dotfiles_dir | default(remote_work_home ~ '/git/dotfiles') }}"
 remote_work_core_repositories:
-  - name: dotfiles
-    repo: "{{ remote_work_dotfiles_repo }}"
-    dest: "{{ remote_work_dotfiles_dir }}"
-    version: main
   - name: ansible
     repo: git@github.com:mvaldes14/ansible.git
     dest: "{{ remote_work_workspace_dir }}/ansible"

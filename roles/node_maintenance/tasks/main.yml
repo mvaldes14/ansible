@@ -1,0 +1,105 @@
+---
+- name: Check Cluster Before Maintenance
+  ansible.builtin.include_tasks: cluster-health.yml
+  when: node_maintenance_kubernetes | bool
+
+- name: Remember Initial Scheduling State
+  ansible.builtin.set_fact:
+    node_maintenance_was_cordoned: >-
+      {{ (node_maintenance_cluster.resources |
+      selectattr('metadata.name', 'equalto', node_maintenance_node_name) |
+      first).spec.unschedulable | default(false) | bool }}
+  when: node_maintenance_kubernetes | bool
+
+- name: Explain Maintenance Check Mode
+  ansible.builtin.debug:
+    msg: "Preflight only: check mode does not drain, upgrade packages, reboot or uncordon."
+  when: ansible_check_mode
+
+- name: Maintain One Node
+  when: not ansible_check_mode
+  block:
+    - name: Drain Kubernetes Node
+      kubernetes.core.k8s_drain:
+        name: "{{ node_maintenance_node_name }}"
+        state: drain
+        delete_options:
+          delete_emptydir_data: "{{ node_maintenance_delete_emptydir_data }}"
+          ignore_daemonsets: true
+          force: false
+          wait_timeout: "{{ node_maintenance_drain_timeout }}"
+      delegate_to: localhost
+      vars:
+        ansible_python_interpreter: "{{ node_maintenance_python }}"
+      when: node_maintenance_kubernetes | bool
+
+    - name: Upgrade System Packages
+      become: true
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+        upgrade: safe
+      when: node_maintenance_upgrade_packages | bool
+
+    - name: Check Whether Reboot Is Required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: node_maintenance_reboot_required
+
+    - name: Reboot Node When Required
+      become: true
+      ansible.builtin.reboot:
+        reboot_timeout: "{{ node_maintenance_reboot_timeout }}"
+        pre_reboot_delay: 10
+        post_reboot_delay: 30
+        test_command: whoami
+      when: node_maintenance_force_reboot | bool or node_maintenance_reboot_required.stat.exists
+
+    - name: Wait For Kubernetes Node Readiness
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Node
+        name: "{{ node_maintenance_node_name }}"
+      delegate_to: localhost
+      vars:
+        ansible_python_interpreter: "{{ node_maintenance_python }}"
+      register: node_maintenance_ready
+      retries: "{{ node_maintenance_ready_retries }}"
+      delay: "{{ node_maintenance_ready_delay }}"
+      until: >-
+        node_maintenance_ready is succeeded and
+        (node_maintenance_ready.resources | default([]) | length) == 1 and
+        (node_maintenance_ready.resources[0].status.conditions | default([]) |
+        selectattr('type', 'equalto', 'Ready') |
+        selectattr('status', 'equalto', 'True') | list | length) == 1
+      when: node_maintenance_kubernetes | bool
+
+    - name: Restore Original Schedulability
+      kubernetes.core.k8s_drain:
+        name: "{{ node_maintenance_node_name }}"
+        state: uncordon
+      delegate_to: localhost
+      vars:
+        ansible_python_interpreter: "{{ node_maintenance_python }}"
+      register: node_maintenance_uncordon
+      retries: 3
+      delay: 10
+      until: node_maintenance_uncordon is succeeded
+      when:
+        - node_maintenance_kubernetes | bool
+        - not (node_maintenance_was_cordoned | default(true) | bool)
+
+    - name: Verify Cluster Before Continuing
+      ansible.builtin.include_tasks: cluster-health.yml
+      when: node_maintenance_kubernetes | bool
+
+  rescue:
+    - name: Report Failed Maintenance And Stop
+      ansible.builtin.fail:
+        msg: >-
+          Maintenance failed on {{ inventory_hostname }} during {{ ansible_failed_task.name }}:
+          {{ ansible_failed_result.msg | default('see task output') }}.
+          No automatic recovery uncordon was attempted. For Kubernetes nodes, inspect
+          kubectl get node {{ node_maintenance_node_name }} and restore health before
+          uncordoning if appropriate. Previously cordoned nodes must remain cordoned.
+          Unreachable hosts also stop this play and require manual recovery.

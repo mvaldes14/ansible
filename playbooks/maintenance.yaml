@@ -1,0 +1,10 @@
+---
+- name: Maintain Nodes One At A Time
+  hosts: homelab_nodes
+  serial: 1
+  any_errors_fatal: true
+  gather_facts: true
+  roles:
+    # Select the entire safety sequence, never individual maintenance steps.
+    - role: node_maintenance
+      tags: [maintenance]

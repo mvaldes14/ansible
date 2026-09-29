@@ -1,0 +1,56 @@
+---
+- name: Setup Dotfiles
+  become: true
+  become_user: "{{ username }}"
+  block:
+    - name: Create Dotfiles Parent Directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ node_setup_dotfiles_dir | dirname }}"
+        - "{{ username_home }}/.config"
+
+    - name: Checkout Dotfiles
+      ansible.builtin.git:
+        repo: "{{ node_setup_dotfiles_repo }}"
+        dest: "{{ node_setup_dotfiles_dir }}"
+        version: "{{ node_setup_dotfiles_version }}"
+        update: "{{ node_setup_dotfiles_update }}"
+
+    - name: Install Dotfiles Links
+      ansible.builtin.include_tasks: dotfiles-link.yml
+      loop:
+        - src: "{{ node_setup_dotfiles_dir }}/.zshenv"
+          dest: "{{ username_home }}/.zshenv"
+        - src: "{{ node_setup_dotfiles_dir }}/.config/zsh"
+          dest: "{{ username_home }}/.config/zsh"
+      loop_control:
+        loop_var: node_setup_dotfile
+
+    - name: Verify Zsh Startup Configuration
+      ansible.builtin.command:
+        # Let zsh expand variables after .zshenv, not Ansible before startup.
+        expand_argument_vars: false
+        argv:
+          - /usr/bin/zsh
+          - -c
+          - |
+            print -r -- "HOME=$HOME ZDOTDIR=${ZDOTDIR-<unset>}"
+            for config in "$HOME/.zshenv" "$HOME/.config/zsh/.zshrc"; do
+              if [[ ! -r "$config" ]]; then
+                print -u2 -r -- "Missing or unreadable shell configuration: $config"
+                exit 1
+              fi
+            done
+            if [[ "$ZDOTDIR" != "$HOME/.config/zsh" ]]; then
+              print -u2 -r -- "Expected ZDOTDIR=$HOME/.config/zsh after loading ~/.zshenv."
+              print -u2 -r -- "Check the linked .zshenv and dotfiles revision; existing checkouts are not updated by default."
+              exit 1
+            fi
+      environment:
+        HOME: "{{ username_home }}"
+        ZDOTDIR: "{{ username_home }}"
+      changed_when: false
+      when: not ansible_check_mode

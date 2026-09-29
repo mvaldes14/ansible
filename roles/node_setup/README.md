@@ -1,40 +1,42 @@
-Role Name
-=========
+# node_setup
 
-Common Linux node baseline for homelab machines.
+Linux baseline: SSH access, Tailscale, MOTD, zsh, Oh My Zsh, shell plugins and
+Starship. Kubernetes integration belongs to `k8s_node`; agent tooling belongs to
+`remote_work`.
 
-Includes SSH access, MOTD, CNI path setup, zsh, and Oh My Zsh.
+## Shell ownership
 
-Requirements
-------------
+Dotfiles is the source of truth for shell configuration. The role clones the
+public repo over HTTPS (no GitHub SSH credentials needed), then links:
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+- `~/.zshenv` → `~/git/dotfiles/.zshenv`
+- `~/.config/zsh` → `~/git/dotfiles/.config/zsh`
 
-Role Variables
---------------
+Existing files/directories are preserved at `<path>.pre-ansible-dotfiles`.
+Conflicting backups cause a failure rather than data loss. Legacy `~/.zshrc`
+is left untouched; `ZDOTDIR` selects the dotfiles configuration instead.
+The role no longer rewrites plugin lists, PATH or prompt initialization in zshrc.
+It installs the custom plugins used by dotfiles. Shell configuration changes
+belong in dotfiles, not this role.
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
+Existing checkouts are not pulled by default. Enable updates deliberately during
+provisioning, never as part of monthly maintenance. Local changes are not forced
+away. Existing SSH-origin checkouts may still require working SSH credentials.
 
-Dependencies
-------------
+## Variables
 
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
+```yaml
+node_setup_dotfiles_repo: https://github.com/mvaldes14/dotfiles.git
+node_setup_dotfiles_dir: /home/mvaldes/git/dotfiles
+node_setup_dotfiles_version: main
+node_setup_dotfiles_update: false
+node_setup_install_tailscale: true
+node_setup_tailscale_auth_key: "" # supply through secrets when auto-joining
+node_setup_tailscale_up_args: []
+pihole_enabled: false
+```
 
-Example Playbook
-----------------
-
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
-
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
-
-License
--------
-
-BSD
-
-Author Information
-------------------
-
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).
+The target user/home must exist (the existing inventory assumes `mvaldes`).
+Run `task bootstrap LIMIT=eva01`. See `defaults/main.yml` for shell dependency
+settings. Molecule uses local Git fixtures and verifies effective zsh startup,
+backup preservation and repeat convergence.

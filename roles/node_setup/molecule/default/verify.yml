@@ -80,8 +80,33 @@
 
         - name: Check Zshrc Exists
           ansible.builtin.stat:
-            path: "/home/{{ username }}/.zshrc"
+            path: "/home/{{ username }}/.config/zsh/.zshrc"
           register: zshrc_file
+
+        - name: Check Zshenv Link
+          ansible.builtin.stat:
+            path: "/home/{{ username }}/.zshenv"
+            follow: false
+          register: zshenv_file
+
+        - name: Check Original Shell Configuration Was Preserved
+          ansible.builtin.slurp:
+            src: "/home/{{ username }}/.config/zsh.pre-ansible-dotfiles/.zshrc"
+          register: original_zshrc
+
+        - name: Run Interactive Zsh Startup
+          become: true
+          become_user: "{{ username }}"
+          ansible.builtin.command:
+            expand_argument_vars: false
+            argv:
+              - /usr/bin/zsh
+              - -ic
+              - '[[ "$ZDOTDIR" == "$HOME/.config/zsh" && "$DOTFILES_STARTUP_LOADED" == yes ]]'
+          environment:
+            HOME: "/home/{{ username }}"
+            ZDOTDIR: "/home/{{ username }}"
+          changed_when: false
 
         - name: Assert Oh My Zsh Is Installed
           ansible.builtin.assert:
@@ -89,10 +114,13 @@
               - oh_my_zsh_checkout.stat.exists
               - zshrc_file.stat.exists
               - zshrc_file.stat.pw_name == username
-            fail_msg: "Oh My Zsh or .zshrc is not installed for {{ username }}"
-            success_msg: "Oh My Zsh and .zshrc are installed for {{ username }}"
+              - zshenv_file.stat.islnk
+              - zshenv_file.stat.lnk_source == '/home/' ~ username ~ '/git/dotfiles/.zshenv'
+              - "'original user configuration' in original_zshrc.content | b64decode"
+            fail_msg: "Oh My Zsh or ZDOTDIR .zshrc is not installed correctly for {{ username }}"
+            success_msg: "Oh My Zsh and ZDOTDIR .zshrc are installed for {{ username }}"
 
-        - name: Check Shell Tool Commands Exist
+        - name: Check Apt Shell Tool Commands Exist
           ansible.builtin.stat:
             path: "/usr/bin/{{ item }}"
           register: shell_tool_commands
@@ -100,7 +128,7 @@
             - fzf
             - zoxide
 
-        - name: Assert Shell Tool Commands Exist
+        - name: Assert Apt Shell Tool Commands Exist
           ansible.builtin.assert:
             that:
               - item.stat.exists
@@ -109,6 +137,19 @@
             success_msg: "{{ item.item }} is installed and executable"
           loop: "{{ shell_tool_commands.results }}"
 
+        - name: Check Starship Command Exists
+          ansible.builtin.stat:
+            path: /usr/local/bin/starship
+          register: starship_command
+
+        - name: Assert Starship Command Exists
+          ansible.builtin.assert:
+            that:
+              - starship_command.stat.exists
+              - starship_command.stat.executable
+            fail_msg: "starship is not installed or is not executable"
+            success_msg: "starship is installed and executable"
+
         - name: Check fzf-tab Plugin Exists
           ansible.builtin.stat:
             path: "/home/{{ username }}/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh"
@@ -116,17 +157,16 @@
 
         - name: Read Zshrc Content
           ansible.builtin.slurp:
-            src: "/home/{{ username }}/.zshrc"
+            src: "/home/{{ username }}/.config/zsh/.zshrc"
           register: zshrc_content
 
-        - name: Assert Oh My Zsh Plugin Configuration
+        - name: Assert Oh My Zsh Configuration
           ansible.builtin.assert:
             that:
               - fzf_tab_plugin.stat.exists
-              - "'plugins=(git fzf fzf-tab zoxide)' in zshrc_content.content | b64decode"
-              - "'export FZF_BASE=/usr/share/doc/fzf/examples' in zshrc_content.content | b64decode"
-            fail_msg: "Oh My Zsh fzf/fzf-tab/zoxide configuration is incomplete"
-            success_msg: "Oh My Zsh shell plugins and fzf base are configured"
+              - "'export DOTFILES_STARTUP_LOADED=yes' in zshrc_content.content | b64decode"
+            fail_msg: "Dotfiles shell configuration or custom plugin is missing"
+            success_msg: "Dotfiles owns shell configuration; Ansible installs dependencies"
 
         - name: Check Sudoers File Exists
           ansible.builtin.stat:
@@ -336,50 +376,6 @@
               - "'PrintMotd' in sshd_motd_config.content | b64decode"
             fail_msg: "PrintMotd not configured in sshd_config"
             success_msg: "PrintMotd is configured in sshd_config"
-
-    # =========================================================================
-    # CNI Plugin Path Tests (cni.yml)
-    # =========================================================================
-    - name: Verify CNI Plugin Paths
-      tags:
-        - cni
-      block:
-        - name: Check CNI Plugin Symlinks
-          ansible.builtin.stat:
-            path: "/opt/cni/bin/{{ item }}"
-            follow: false
-          loop:
-            - cilium-cni
-            - loopback
-          register: cni_links
-
-        - name: Assert CNI Plugins Are Linked To The k3s Data Directory
-          ansible.builtin.assert:
-            that:
-              - item.stat.exists
-              - item.stat.islnk
-              - item.stat.lnk_target == "/var/lib/rancher/k3s/data/cni/" ~ item.item
-            fail_msg: "/opt/cni/bin/{{ item.item }} is not a symlink into the k3s CNI directory - containerd will fail with 'failed to find plugin'"
-            success_msg: "/opt/cni/bin/{{ item.item }} links to the k3s CNI directory"
-          loop: "{{ cni_links.results }}"
-
-        - name: Check CNI Plugin Symlinks Resolve
-          ansible.builtin.stat:
-            path: "/opt/cni/bin/{{ item }}"
-            follow: true
-          loop:
-            - cilium-cni
-            - loopback
-          register: cni_targets
-
-        - name: Assert CNI Plugin Symlinks Resolve To Executables
-          ansible.builtin.assert:
-            that:
-              - item.stat.exists
-              - item.stat.executable
-            fail_msg: "/opt/cni/bin/{{ item.item }} is a dangling symlink"
-            success_msg: "/opt/cni/bin/{{ item.item }} resolves to an executable"
-          loop: "{{ cni_targets.results }}"
 
     # =========================================================================
     # Idempotency Test
