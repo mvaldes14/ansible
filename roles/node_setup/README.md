@@ -3,7 +3,7 @@ Role Name
 
 Common Linux node baseline for homelab machines.
 
-Includes SSH access, MOTD, CNI path setup, zsh, and Oh My Zsh.
+Includes SSH access, Tailscale package/service setup, MOTD, CNI path setup, zsh, and Oh My Zsh.
 
 Requirements
 ------------
@@ -13,7 +13,15 @@ Any pre-requisites that may not be covered by Ansible itself or the role should 
 Role Variables
 --------------
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
+Key variables:
+
+```yaml
+node_setup_install_tailscale: true
+node_setup_tailscale_channel: stable
+node_setup_tailscale_auth_key: "" # optional; auto-joins if set from secrets
+node_setup_tailscale_up_args: []
+pihole_enabled: false
+```
 
 Dependencies
 ------------

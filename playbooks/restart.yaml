@@ -5,7 +5,9 @@
       ansible_python_interpreter: /usr/bin/python3
       local_kubernetes_python: "{{ playbook_dir }}/../.venv/bin/python"
   roles:
-      - node_setup
+      - role: node_setup
+        tags:
+            - setup
   tasks:
       - name: Update Packages
         become: true
@@ -13,6 +15,9 @@
             update_cache: true
             cache_valid_time: 3600
       - name: Drain Nodes
+        tags:
+            - restart
+            - drain
         kubernetes.core.k8s_drain:
             name: "{{ inventory_hostname }}"
             state: drain
@@ -29,6 +34,9 @@
         vars:
             ansible_python_interpreter: "{{ local_kubernetes_python }}"
       - name: Reboot the machine
+        tags:
+            - restart
+            - reboot
         become: true
         ansible.builtin.reboot:
             reboot_timeout: 600
@@ -54,6 +62,9 @@
         vars:
             ansible_python_interpreter: "{{ local_kubernetes_python }}"
       - name: Uncordon Nodes
+        tags:
+            - restart
+            - drain
         kubernetes.core.k8s_drain:
             name: "{{ inventory_hostname }}"
             state: uncordon

@@ -1,6 +1,40 @@
 - name: Sets up machine
   block:
-    - name: Check tailscale installed
+    - name: Install Tailscale Repository Dependencies
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: true
+      become: true
+      when: node_setup_install_tailscale
+
+    - name: Install Tailscale Apt Keyring
+      ansible.builtin.get_url:
+        url: "{{ node_setup_tailscale_apt_base_url }}/{{ node_setup_tailscale_channel }}/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }}.noarmor.gpg"
+        dest: "{{ node_setup_tailscale_apt_keyring }}"
+        mode: "0644"
+      become: true
+      when: node_setup_install_tailscale
+
+    - name: Install Tailscale Apt Source
+      ansible.builtin.get_url:
+        url: "{{ node_setup_tailscale_apt_base_url }}/{{ node_setup_tailscale_channel }}/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }}.tailscale-keyring.list"
+        dest: "{{ node_setup_tailscale_apt_source }}"
+        mode: "0644"
+      become: true
+      when: node_setup_install_tailscale
+
+    - name: Install Tailscale Package
+      ansible.builtin.apt:
+        name: "{{ node_setup_tailscale_package }}"
+        state: present
+        update_cache: true
+      become: true
+      when: node_setup_install_tailscale
+
+    - name: Check Tailscale Installed
       ansible.builtin.stat:
         path: /usr/bin/tailscaled
       register: tailscale_check
@@ -9,10 +43,35 @@
         name: pihole-FTL.service
         state: started
         enabled: true
+      become: true
       when: pihole_enabled # Comes from host variables
-    - name: 'Tailscaled running'
+    - name: Start Tailscaled
       ansible.builtin.systemd:
         name: tailscaled
         state: started
         enabled: true
+      become: true
       when: tailscale_check.stat.exists
+
+    - name: Check Tailscale Auth Status
+      ansible.builtin.command:
+        cmd: tailscale status
+      register: tailscale_status
+      changed_when: false
+      failed_when: false
+      when: tailscale_check.stat.exists
+
+    - name: Authenticate Tailscale
+      ansible.builtin.command:
+        cmd: >-
+          tailscale up
+          --auth-key={{ node_setup_tailscale_auth_key }}
+          --hostname={{ inventory_hostname }}
+          {{ node_setup_tailscale_up_args | join(' ') }}
+      become: true
+      changed_when: true
+      no_log: true
+      when:
+        - tailscale_check.stat.exists
+        - node_setup_tailscale_auth_key | length > 0
+        - tailscale_status.rc != 0

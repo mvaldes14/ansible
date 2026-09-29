@@ -27,6 +27,17 @@ shell_extra_packages:
 # Enable/disable pihole service management
 pihole_enabled: false
 
+# Tailscale setup
+node_setup_install_tailscale: true
+node_setup_tailscale_channel: stable
+node_setup_tailscale_package: tailscale
+node_setup_tailscale_apt_keyring: /usr/share/keyrings/tailscale-archive-keyring.gpg
+node_setup_tailscale_apt_source: /etc/apt/sources.list.d/tailscale.list
+node_setup_tailscale_apt_base_url: https://pkgs.tailscale.com
+# Optional; set from an external secret source to auto-join new machines.
+node_setup_tailscale_auth_key: ""
+node_setup_tailscale_up_args: []
+
 # Where k3s (and the Cilium chart, via cni.binPath) place CNI plugin binaries
 k3s_cni_bin_dir: /var/lib/rancher/k3s/data/cni
 

@@ -21,7 +21,10 @@
       - tmux
       - unzip
     remote_work_herdr_install_script: file:///tmp/herdr-install.sh
+    remote_work_mise_install_script: file:///tmp/mise-install.sh
+    remote_work_task_install_script: file:///tmp/task-install.sh
     remote_work_pi_install_script: file:///tmp/pi-install.sh
+    remote_work_manage_nodejs: false
     remote_work_npm_bin: /usr/local/bin/fake-npm
     remote_work_dotfiles_repo: file:///tmp/git-src/dotfiles
     remote_work_dotfiles_dir: /home/mvaldes/git/dotfiles
