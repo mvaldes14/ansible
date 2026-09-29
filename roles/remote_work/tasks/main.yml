@@ -55,6 +55,7 @@
     - pkg
     - nodejs
   become: true
+  when: remote_work_manage_nodejs
   block:
     - name: Check Node.js Version
       ansible.builtin.command:
@@ -83,8 +84,6 @@
         state: latest
         update_cache: true
       when: not ansible_check_mode
-
-  when: remote_work_manage_nodejs
 
 - name: Setup Remote Work CLIs
   tags:

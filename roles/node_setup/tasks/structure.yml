@@ -12,7 +12,13 @@
 
     - name: Install Tailscale Apt Keyring
       ansible.builtin.get_url:
-        url: "{{ node_setup_tailscale_apt_base_url }}/{{ node_setup_tailscale_channel }}/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }}.noarmor.gpg"
+        url: >-
+          {{
+            node_setup_tailscale_apt_base_url ~ '/' ~
+            node_setup_tailscale_channel ~ '/' ~
+            (ansible_distribution | lower) ~ '/' ~
+            ansible_distribution_release ~ '.noarmor.gpg'
+          }}
         dest: "{{ node_setup_tailscale_apt_keyring }}"
         mode: "0644"
       become: true
@@ -20,7 +26,13 @@
 
     - name: Install Tailscale Apt Source
       ansible.builtin.get_url:
-        url: "{{ node_setup_tailscale_apt_base_url }}/{{ node_setup_tailscale_channel }}/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }}.tailscale-keyring.list"
+        url: >-
+          {{
+            node_setup_tailscale_apt_base_url ~ '/' ~
+            node_setup_tailscale_channel ~ '/' ~
+            (ansible_distribution | lower) ~ '/' ~
+            ansible_distribution_release ~ '.tailscale-keyring.list'
+          }}
         dest: "{{ node_setup_tailscale_apt_source }}"
         mode: "0644"
       become: true
