@@ -7,6 +7,8 @@ version: '3'
 vars:
   ROLES_DIR: roles
   VENV: .venv
+  UV_VERSION: latest
+  UV: mise exec uv@{{.UV_VERSION}} -- uv
   # Role to act on. Override per invocation: task converge ROLE=node_setup
   ROLE: node_setup
   LIMIT: ''
@@ -155,11 +157,12 @@ tasks:
         msg: 'Missing Python kubernetes package. Run "task deps" first.'
 
   deps:
-    desc: Rebuild {{.VENV}} with uv and install python + galaxy dependencies
+    desc: Rebuild {{.VENV}} with uv from mise and install python + galaxy dependencies
     preconditions:
-      - sh: command -v uv >/dev/null 2>&1
-        msg: 'uv is not installed -- "brew install uv" (see https://docs.astral.sh/uv/).'
+      - sh: command -v mise >/dev/null 2>&1
+        msg: 'mise is not installed -- install mise first (see https://mise.jdx.dev/getting-started.html).'
     cmds:
-      - uv venv --clear {{.VENV}}
-      - uv pip install --python {{.VENV}}/bin/python -r requirements.txt
+      - mise install uv@{{.UV_VERSION}}
+      - '{{.UV}} venv --clear {{.VENV}}'
+      - '{{.UV}} pip install --python {{.VENV}}/bin/python -r requirements.txt'
       - '{{.VENV}}/bin/ansible-galaxy collection install -r requirements.yml'
