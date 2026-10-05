@@ -27,14 +27,19 @@ Task wrappers require an explicit `LIMIT`; arguments after `--` pass to Ansible.
 Direct playbook runs still require `ANSIBLE_ROLES_PATH=$PWD/roles` when not using Task.
 Use `task deps` to provide the controller's Kubernetes Python client at `.venv/bin/python`.
 Override `node_maintenance_python` if using another controller interpreter.
+Kubernetes control-plane calls fail closed if the client hangs: read/health checks
+use `node_maintenance_kubernetes_read_timeout` (default 60s), while drain uses
+`node_maintenance_kubernetes_action_timeout` (default drain timeout + 60s).
 
 ## Rolling Maintenance
 
 All six current homelab nodes are explicitly listed in `k8s_nodes`. Keep this group
 accurate: other `homelab_nodes` receive OS maintenance without Kubernetes calls.
 Override `node_maintenance_node_name` when Kubernetes and inventory names differ.
-The controller needs a working kubeconfig and permission to inspect nodes,
-cordon/uncordon and evict pods.
+The controller needs a readable kubeconfig and permission to inspect nodes,
+cordon/uncordon and evict pods. Set `KUBECONFIG` or override
+`node_maintenance_kubeconfig`; do not rely on k3s' root-only
+`/etc/rancher/k3s/k3s.yaml` when running Ansible as an unprivileged user.
 
 For each node: require all cluster nodes Ready → drain → safe apt upgrades → reboot
 if `/var/run/reboot-required` exists → wait for Node Ready → restore schedulability
@@ -44,11 +49,13 @@ nodes remain cordoned. Failure does **not** automatically uncordon unhealthy nod
 inspect the failure and node before manual recovery. Cluster readiness checks do
 not guarantee application health; monitor workloads during a maintenance window.
 
-Drain respects PodDisruptionBudgets and refuses unmanaged pods. EmptyDir deletion
-is disabled by default. If disposable EmptyDir data is acceptable, explicitly set
-`node_maintenance_delete_emptydir_data: true` in inventory or extra vars. Do not
-bypass a failed drain to continue updates. `node_maintenance_force_reboot: true`
-reboots even without the Debian/Ubuntu reboot marker.
+Drain respects PodDisruptionBudgets and refuses unmanaged pods. EmptyDir/local
+ephemeral data deletion is enabled by default so common controllers such as Flux,
+metrics-server and StatefulSet config scratch space do not block planned node
+maintenance. Override `node_maintenance_delete_emptydir_data: false` for a stricter
+preflight. Do not bypass a failed drain to continue updates.
+`node_maintenance_force_reboot: true` reboots even without the Debian/Ubuntu reboot
+marker.
 
 The `maintenance` tag selects the **entire** maintenance sequence; individual
 steps have no separate tags. Do not use `--start-at-task` or custom skip-tags to

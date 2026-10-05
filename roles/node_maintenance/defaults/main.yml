@@ -2,11 +2,14 @@
 node_maintenance_kubernetes: "{{ inventory_hostname in groups.get('k8s_nodes', []) }}"
 node_maintenance_node_name: "{{ inventory_hostname }}"
 node_maintenance_python: "{{ playbook_dir }}/../.venv/bin/python"
+node_maintenance_kubeconfig: "{{ lookup('ansible.builtin.env', 'KUBECONFIG') | default('', true) }}"
 node_maintenance_upgrade_packages: true
 node_maintenance_force_reboot: false
 node_maintenance_reboot_timeout: 600
 node_maintenance_drain_timeout: 300
-# EmptyDir deletion requires an explicit decision; never bypass PDB eviction.
-node_maintenance_delete_emptydir_data: false
+node_maintenance_kubernetes_read_timeout: 60
+node_maintenance_kubernetes_action_timeout: "{{ node_maintenance_drain_timeout | int + 60 }}"
+# Allow eviction of pods using EmptyDir/local ephemeral data; never bypass PDB eviction.
+node_maintenance_delete_emptydir_data: true
 node_maintenance_ready_retries: 30
 node_maintenance_ready_delay: 10

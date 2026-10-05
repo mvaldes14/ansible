@@ -39,7 +39,7 @@ class MaintenanceContract(unittest.TestCase):
         drain = self.steps[0]['kubernetes.core.k8s_drain']['delete_options']
         self.assertFalse(drain['force'])
         defaults = load('roles/node_maintenance/defaults/main.yml')
-        self.assertFalse(defaults['node_maintenance_delete_emptydir_data'])
+        self.assertTrue(defaults['node_maintenance_delete_emptydir_data'])
 
     def test_preserves_preexisting_cordon(self):
         self.assertIn('not (node_maintenance_was_cordoned | default(true) | bool)',

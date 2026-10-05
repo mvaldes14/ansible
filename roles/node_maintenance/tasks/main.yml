@@ -11,11 +11,6 @@
       first).spec.unschedulable | default(false) | bool }}
   when: node_maintenance_kubernetes | bool
 
-- name: Explain Maintenance Check Mode
-  ansible.builtin.debug:
-    msg: "Preflight only: check mode does not drain, upgrade packages, reboot or uncordon."
-  when: ansible_check_mode
-
 - name: Maintain One Node
   when: not ansible_check_mode
   block:
@@ -23,6 +18,7 @@
       kubernetes.core.k8s_drain:
         name: "{{ node_maintenance_node_name }}"
         state: drain
+        kubeconfig: "{{ node_maintenance_kubeconfig if node_maintenance_kubeconfig | length > 0 else omit }}"
         delete_options:
           delete_emptydir_data: "{{ node_maintenance_delete_emptydir_data }}"
           ignore_daemonsets: true
@@ -31,6 +27,7 @@
       delegate_to: localhost
       vars:
         ansible_python_interpreter: "{{ node_maintenance_python }}"
+      timeout: "{{ node_maintenance_kubernetes_action_timeout }}"
       when: node_maintenance_kubernetes | bool
 
     - name: Upgrade System Packages
@@ -60,9 +57,11 @@
         api_version: v1
         kind: Node
         name: "{{ node_maintenance_node_name }}"
+        kubeconfig: "{{ node_maintenance_kubeconfig if node_maintenance_kubeconfig | length > 0 else omit }}"
       delegate_to: localhost
       vars:
         ansible_python_interpreter: "{{ node_maintenance_python }}"
+      timeout: "{{ node_maintenance_kubernetes_read_timeout }}"
       register: node_maintenance_ready
       retries: "{{ node_maintenance_ready_retries }}"
       delay: "{{ node_maintenance_ready_delay }}"
@@ -78,9 +77,11 @@
       kubernetes.core.k8s_drain:
         name: "{{ node_maintenance_node_name }}"
         state: uncordon
+        kubeconfig: "{{ node_maintenance_kubeconfig if node_maintenance_kubeconfig | length > 0 else omit }}"
       delegate_to: localhost
       vars:
         ansible_python_interpreter: "{{ node_maintenance_python }}"
+      timeout: "{{ node_maintenance_kubernetes_read_timeout }}"
       register: node_maintenance_uncordon
       retries: 3
       delay: 10

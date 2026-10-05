@@ -3,9 +3,11 @@
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Node
+    kubeconfig: "{{ node_maintenance_kubeconfig if node_maintenance_kubeconfig | length > 0 else omit }}"
   delegate_to: localhost
   vars:
     ansible_python_interpreter: "{{ node_maintenance_python }}"
+  timeout: "{{ node_maintenance_kubernetes_read_timeout }}"
   register: node_maintenance_cluster
 
 - name: Require A Healthy Cluster
@@ -14,15 +16,27 @@
       - node_maintenance_cluster.resources | length > 0
       - node_maintenance_node_name in (node_maintenance_cluster.resources | map(attribute='metadata.name') | list)
     fail_msg: "Cluster is empty or target node is absent; refusing maintenance."
+    quiet: true
+
+- name: Find Not Ready Nodes
+  ansible.builtin.set_fact:
+    node_maintenance_not_ready_nodes: >-
+      {%- set ns = namespace(nodes=[]) -%}
+      {%- for node in node_maintenance_cluster.resources -%}
+      {%- set ready = (node.status.conditions | default([]) |
+        selectattr('type', 'equalto', 'Ready') |
+        selectattr('status', 'equalto', 'True') | list | length) == 1 -%}
+      {%- if not ready -%}
+      {%- set ns.nodes = ns.nodes + [node.metadata.name] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ ns.nodes | to_json }}
 
 - name: Require Every Node To Be Ready
   ansible.builtin.assert:
     that:
-      - >-
-        (item.status.conditions | default([]) |
-        selectattr('type', 'equalto', 'Ready') |
-        selectattr('status', 'equalto', 'True') | list | length) == 1
-    fail_msg: "Node {{ item.metadata.name }} is not Ready; stopping rolling maintenance."
-  loop: "{{ node_maintenance_cluster.resources }}"
-  loop_control:
-    label: "{{ item.metadata.name }}"
+      - (node_maintenance_not_ready_nodes | from_json | length) == 0
+    fail_msg: >-
+      Not Ready nodes: {{ node_maintenance_not_ready_nodes | from_json | join(', ') }};
+      stopping rolling maintenance.
+    quiet: true
