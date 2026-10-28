@@ -14,7 +14,7 @@ checkout and shell links; this role only consumes its AI bootstrap script.
 - Installs pi with bounded curl/install timeouts and only retries when no usable pi binary exists
 - Installs Obsidian Headless with `npm install -g obsidian-headless`
 - Creates the remote workspace under `~/git`
-- Clones missing core repos and runs `git pull --ff-only` on every execution
+- Optionally clones missing core repos and runs `git pull --ff-only` on every execution when `remote_work_sync_repositories` is enabled
 - Optionally clones/pulls the Obsidian vault
 - Optionally clones/pulls extra work repos
 - Runs the dotfiles AI bootstrap to link shared AI config
@@ -24,7 +24,7 @@ checkout and shell links; this role only consumes its AI bootstrap script.
 ```yaml
 remote_work_user: mvaldes
 remote_work_workspace_dir: /home/mvaldes/git
-remote_work_sync_repositories: true
+remote_work_sync_repositories: false # enable after GitHub SSH keys are authorized
 remote_work_dotfiles_dir: /home/mvaldes/git/dotfiles
 remote_work_manage_nodejs: true
 remote_work_nodejs_major_version: 22

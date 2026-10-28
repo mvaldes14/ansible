@@ -58,9 +58,8 @@ remote_work_install_obsidian_headless: true
 remote_work_npm_bin: npm
 
 # Core repos that should exist on every remote work machine.
-# These are cloned when missing and git-pulled on every playbook execution.
-# Disable for first-pass bootstrap before GitHub SSH keys are authorized.
-remote_work_sync_repositories: true
+# Enable this after GitHub SSH keys are authorized to clone/pull repos.
+remote_work_sync_repositories: false
 # node_setup owns the dotfiles checkout and shell links.
 remote_work_dotfiles_dir: "{{ node_setup_dotfiles_dir | default(remote_work_home ~ '/git/dotfiles') }}"
 remote_work_core_repositories:
