@@ -30,6 +30,9 @@ Override `node_maintenance_python` if using another controller interpreter.
 Kubernetes control-plane calls fail closed if the client hangs: read/health checks
 use `node_maintenance_kubernetes_read_timeout` (default 60s), while drain uses
 `node_maintenance_kubernetes_action_timeout` (default drain timeout + 60s).
+Cluster reads retry three times. Drain retries transient API failures using
+`node_maintenance_drain_retries` (default 4) and
+`node_maintenance_drain_retry_delay` (default 15s) before stopping the rollout.
 
 ## Rolling Maintenance
 

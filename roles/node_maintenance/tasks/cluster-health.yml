@@ -9,6 +9,9 @@
     ansible_python_interpreter: "{{ node_maintenance_python }}"
   timeout: "{{ node_maintenance_kubernetes_read_timeout }}"
   register: node_maintenance_cluster
+  retries: 3
+  delay: 10
+  until: node_maintenance_cluster is succeeded
 
 - name: Require A Healthy Cluster
   ansible.builtin.assert:

@@ -36,10 +36,14 @@ class MaintenanceContract(unittest.TestCase):
             'Verify Cluster Before Continuing'])
 
     def test_drain_does_not_force(self):
-        drain = self.steps[0]['kubernetes.core.k8s_drain']['delete_options']
+        drain_task = self.steps[0]
+        drain = drain_task['kubernetes.core.k8s_drain']['delete_options']
         self.assertFalse(drain['force'])
+        self.assertEqual(drain_task['register'], 'node_maintenance_drain')
+        self.assertEqual(drain_task['until'], 'node_maintenance_drain is succeeded')
         defaults = load('roles/node_maintenance/defaults/main.yml')
         self.assertTrue(defaults['node_maintenance_delete_emptydir_data'])
+        self.assertGreater(defaults['node_maintenance_drain_retries'], 1)
 
     def test_preserves_preexisting_cordon(self):
         self.assertIn('not (node_maintenance_was_cordoned | default(true) | bool)',

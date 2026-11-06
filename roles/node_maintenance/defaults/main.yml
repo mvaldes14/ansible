@@ -7,6 +7,8 @@ node_maintenance_upgrade_packages: true
 node_maintenance_force_reboot: false
 node_maintenance_reboot_timeout: 600
 node_maintenance_drain_timeout: 300
+node_maintenance_drain_retries: 4
+node_maintenance_drain_retry_delay: 15
 node_maintenance_kubernetes_read_timeout: 60
 node_maintenance_kubernetes_action_timeout: "{{ node_maintenance_drain_timeout | int + 60 }}"
 # Allow eviction of pods using EmptyDir/local ephemeral data; never bypass PDB eviction.

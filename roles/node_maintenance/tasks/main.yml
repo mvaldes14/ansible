@@ -28,6 +28,10 @@
       vars:
         ansible_python_interpreter: "{{ node_maintenance_python }}"
       timeout: "{{ node_maintenance_kubernetes_action_timeout }}"
+      register: node_maintenance_drain
+      retries: "{{ node_maintenance_drain_retries }}"
+      delay: "{{ node_maintenance_drain_retry_delay }}"
+      until: node_maintenance_drain is succeeded
       when: node_maintenance_kubernetes | bool
 
     - name: Upgrade System Packages
