@@ -9,6 +9,42 @@
     state: present
     update_cache: true
 
+- name: Setup Docker Engine
+  tags:
+    - remote_work
+    - pkg
+    - docker
+  become: true
+  when: remote_work_install_docker
+  block:
+    - name: Check Docker Engine
+      ansible.builtin.command:
+        cmd: docker --version
+      register: remote_work_docker_binary
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Install Docker Engine
+      ansible.builtin.apt:
+        name: "{{ remote_work_docker_package }}"
+        state: present
+      when: remote_work_docker_binary.rc != 0
+
+    - name: Add Remote Work User To Docker Group
+      ansible.builtin.user:
+        name: "{{ remote_work_user }}"
+        groups:
+          - docker
+        append: true
+
+    - name: Enable Docker Service
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+      when: ansible_facts['service_mgr'] == 'systemd'
+
 - name: Check Debian fd Binary
   tags:
     - remote_work
@@ -129,6 +165,41 @@
         state: link
         force: true
       when: remote_work_install_mise
+
+    - name: Check Mise Go Toolchain
+      tags:
+        - go
+      become: true
+      become_user: "{{ remote_work_user }}"
+      ansible.builtin.shell:
+        cmd: >-
+          test "$(mise current go 2>/dev/null)"
+          = "$(mise latest go@{{ remote_work_go_version }})"
+        executable: /bin/bash
+      register: remote_work_mise_go_check
+      changed_when: false
+      failed_when: remote_work_mise_go_check.rc not in [0, 1]
+      environment:
+        HOME: "{{ remote_work_home }}"
+        PATH: "/usr/local/bin:{{ remote_work_home }}/.local/bin:/usr/bin:/bin"
+      when:
+        - remote_work_install_mise
+        - remote_work_install_go
+
+    - name: Install Go With Mise
+      tags:
+        - go
+      become: true
+      become_user: "{{ remote_work_user }}"
+      ansible.builtin.command:
+        cmd: "{{ remote_work_mise_bin }} use --global go@{{ remote_work_go_version }}"
+      environment:
+        HOME: "{{ remote_work_home }}"
+        MISE_YES: "1"
+      when:
+        - remote_work_install_mise
+        - remote_work_install_go
+        - remote_work_mise_go_check.rc == 1
 
     - name: Install Go Task
       become: true

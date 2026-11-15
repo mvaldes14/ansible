@@ -18,6 +18,7 @@
             executable: /bin/bash
           changed_when: false
           loop:
+            - docker
             - git
             - jq
             - node
@@ -34,6 +35,28 @@
             fail_msg: "Required command missing: {{ item.item }}"
             success_msg: "Required command available: {{ item.item }}"
           loop: "{{ remote_work_commands.results }}"
+
+        - name: Check Mise Go Toolchain
+          become: true
+          become_user: "{{ remote_work_user }}"
+          ansible.builtin.command:
+            cmd: /usr/local/bin/mise exec -- go version
+          changed_when: false
+          environment:
+            HOME: "{{ remote_work_home }}"
+
+        - name: Check Docker Group Membership
+          ansible.builtin.command:
+            cmd: id -nG "{{ remote_work_user }}"
+          changed_when: false
+          register: remote_work_user_groups
+
+        - name: Assert Docker Group Membership
+          ansible.builtin.assert:
+            that:
+              - "'docker' in remote_work_user_groups.stdout.split()"
+            fail_msg: "{{ remote_work_user }} is not in the docker group"
+            success_msg: "{{ remote_work_user }} can access Docker"
 
     - name: Verify Remote Work CLIs
       tags:

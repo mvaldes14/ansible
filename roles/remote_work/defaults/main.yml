@@ -31,6 +31,12 @@ remote_work_packages:
   - wget
   - yq
 
+# System-wide development runtimes.
+remote_work_install_go: true
+remote_work_go_version: latest
+remote_work_install_docker: true
+remote_work_docker_package: docker.io
+
 # Pi requires Node.js >= 22.19.0 when running the installer non-interactively.
 remote_work_manage_nodejs: true
 remote_work_nodejs_major_version: 22
