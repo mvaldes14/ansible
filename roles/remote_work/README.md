@@ -7,6 +7,8 @@ checkout and shell links; this role only consumes its AI bootstrap script.
 ## What it does
 
 - Installs remote-dev packages (`git`, `tmux`, `neovim`, `ripgrep`, `fd`, `jq`, `bat`, `eza`, `atuin`, `stow`, Python venv support, etc.); baseline shell setup (`zsh`, `fzf`, `zoxide`, Starship, Oh My Zsh) lives in `node_setup`
+- Installs the latest Go toolchain through mise for the remote-work user
+- Installs Docker Engine, enables its service, and grants the remote-work user access through the `docker` group
 - Installs Node.js 22 from NodeSource before installing pi, because pi's installer requires Node.js 22.19.0+ in non-interactive sessions
 - Installs Herdr with `curl -fsSL https://herdr.dev/install.sh | sh`
 - Installs mise with `curl -fsSL https://mise.run | sh` and links it into `/usr/local/bin`
@@ -26,6 +28,10 @@ remote_work_user: mvaldes
 remote_work_workspace_dir: /home/mvaldes/git
 remote_work_sync_repositories: false # enable after GitHub SSH keys are authorized
 remote_work_dotfiles_dir: /home/mvaldes/git/dotfiles
+remote_work_install_go: true
+remote_work_go_version: latest
+remote_work_install_docker: true
+remote_work_docker_package: docker.io
 remote_work_manage_nodejs: true
 remote_work_nodejs_major_version: 22
 remote_work_nodejs_min_version: 22.19.0
