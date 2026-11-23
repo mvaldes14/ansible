@@ -4,6 +4,9 @@ node_maintenance_node_name: "{{ inventory_hostname }}"
 node_maintenance_python: "{{ playbook_dir }}/../.venv/bin/python"
 node_maintenance_kubeconfig: "{{ lookup('ansible.builtin.env', 'KUBECONFIG') | default('', true) }}"
 node_maintenance_upgrade_packages: true
+# Packages whose repository version may sort lower than installed version.
+# APT pinning remains responsible for selecting the intended repository.
+node_maintenance_allowed_downgrade_packages: []
 node_maintenance_force_reboot: false
 node_maintenance_reboot_timeout: 600
 node_maintenance_drain_timeout: 300

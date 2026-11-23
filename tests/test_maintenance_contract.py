@@ -30,10 +30,10 @@ class MaintenanceContract(unittest.TestCase):
 
     def test_order_protects_updates_and_readiness(self):
         self.assertEqual([t['name'] for t in self.steps], [
-            'Drain Kubernetes Node', 'Upgrade System Packages',
-            'Check Whether Reboot Is Required', 'Reboot Node When Required',
-            'Wait For Kubernetes Node Readiness', 'Restore Original Schedulability',
-            'Verify Cluster Before Continuing'])
+            'Drain Kubernetes Node', 'Reconcile Packages Allowing Downgrades',
+            'Upgrade System Packages', 'Check Whether Reboot Is Required',
+            'Reboot Node When Required', 'Wait For Kubernetes Node Readiness',
+            'Restore Original Schedulability', 'Verify Cluster Before Continuing'])
 
     def test_drain_does_not_force(self):
         drain_task = self.steps[0]
@@ -47,13 +47,24 @@ class MaintenanceContract(unittest.TestCase):
 
     def test_preserves_preexisting_cordon(self):
         self.assertIn('not (node_maintenance_was_cordoned | default(true) | bool)',
-                      self.steps[5]['when'])
+                      self.steps[6]['when'])
         self.assertIn('Remember Initial Scheduling State',
                       [t['name'] for t in self.tasks[:3]])
 
     def test_non_cluster_nodes_skip_cluster_operations(self):
-        for task in (self.steps[0], self.steps[4], self.steps[5], self.steps[6]):
+        for task in (self.steps[0], self.steps[5], self.steps[6], self.steps[7]):
             self.assertIn('node_maintenance_kubernetes | bool', task['when'])
+
+    def test_downgrades_are_package_scoped(self):
+        reconcile = self.steps[1]
+        apt = reconcile['ansible.builtin.apt']
+        self.assertTrue(apt['allow_downgrade'])
+        self.assertEqual(apt['name'], '{{ node_maintenance_allowed_downgrade_packages }}')
+        self.assertFalse(self.steps[2]['ansible.builtin.apt'].get('allow_downgrade', False))
+        defaults = load('roles/node_maintenance/defaults/main.yml')
+        self.assertEqual(defaults['node_maintenance_allowed_downgrade_packages'], [])
+        group_vars = load('inventory/group_vars/homelab_nodes.yaml')
+        self.assertEqual(group_vars['node_maintenance_allowed_downgrade_packages'], ['rex'])
 
     def test_check_mode_skips_mutations(self):
         self.assertEqual(self.maintenance['when'], 'not ansible_check_mode')

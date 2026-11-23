@@ -34,6 +34,18 @@
       until: node_maintenance_drain is succeeded
       when: node_maintenance_kubernetes | bool
 
+    - name: Reconcile Packages Allowing Downgrades
+      become: true
+      ansible.builtin.apt:
+        name: "{{ node_maintenance_allowed_downgrade_packages }}"
+        state: latest
+        update_cache: true
+        cache_valid_time: 3600
+        allow_downgrade: true
+      when:
+        - node_maintenance_upgrade_packages | bool
+        - node_maintenance_allowed_downgrade_packages | length > 0
+
     - name: Upgrade System Packages
       become: true
       ansible.builtin.apt:

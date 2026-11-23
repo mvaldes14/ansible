@@ -7,3 +7,8 @@ username_home: "/home/{{ username }}"
 
 # Service toggles
 pihole_enabled: false
+
+# Superlogical Rex shares its Debian package name with Ubuntu's unrelated rex.
+# Repository pinning selects Superlogical; maintenance may need one explicit downgrade.
+node_maintenance_allowed_downgrade_packages:
+  - rex
