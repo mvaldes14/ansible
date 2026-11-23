@@ -12,6 +12,7 @@ checkout and shell links; this role only consumes its AI bootstrap script.
 - Installs Node.js 22 from NodeSource before installing pi, because pi's installer requires Node.js 22.19.0+ in non-interactive sessions
 - Installs Herdr with `curl -fsSL https://herdr.dev/install.sh | sh`
 - Installs mise with `curl -fsSL https://mise.run | sh` and links it into `/usr/local/bin`
+- Uses mise for the shared Mac/Linux CLI baseline and links its shims into `/usr/local/bin`: `kubectl`, `flux`, `helm`, `k9s`, `kubie`, `kustomize`, `stern`, `lazygit`, `neovim`, and `uv`
 - Installs Go Task with `curl -fsSL https://taskfile.dev/install.sh | sh -s -- -d -b /usr/local/bin`
 - Installs pi with bounded curl/install timeouts and only retries when no usable pi binary exists
 - Installs Obsidian Headless with `npm install -g obsidian-headless`
@@ -39,6 +40,20 @@ remote_work_install_herdr: true
 remote_work_install_mise: true
 remote_work_mise_install_script: https://mise.run
 remote_work_mise_bin: /home/mvaldes/.local/bin/mise
+remote_work_mise_tools:
+  - kubectl@latest
+  - flux2@latest
+  - helm@latest
+  - k9s@latest
+  - kubie@latest
+  - kustomize@latest
+  - stern@latest
+  - lazygit@latest
+  - neovim@latest
+  - uv@latest
+remote_work_mise_tool_bin_map:
+  flux2: flux
+  neovim: nvim
 remote_work_install_task: true
 remote_work_install_pi: true
 remote_work_pi_install_marker: /home/mvaldes/.local/share/pi-node

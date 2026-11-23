@@ -51,6 +51,23 @@ remote_work_herdr_install_script: https://herdr.dev/install.sh
 remote_work_install_mise: true
 remote_work_mise_install_script: https://mise.run
 remote_work_mise_bin: "{{ remote_work_home }}/.local/bin/mise"
+# Shared Mac/Linux CLI baseline. Mise keeps versions and installation consistent
+# across machines without platform-specific apt/Homebrew task branches.
+remote_work_mise_tools:
+  - kubectl@latest
+  - flux2@latest
+  - helm@latest
+  - k9s@latest
+  - kubie@latest
+  - kustomize@latest
+  - stern@latest
+  - lazygit@latest
+  - neovim@latest
+  - uv@latest
+# Mise tool names do not always match their installed executable names.
+remote_work_mise_tool_bin_map:
+  flux2: flux
+  neovim: nvim
 remote_work_install_task: true
 remote_work_task_install_script: https://taskfile.dev/install.sh
 remote_work_install_pi: true

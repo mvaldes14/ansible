@@ -147,6 +147,8 @@
       when: remote_work_install_herdr
 
     - name: Install Mise
+      tags:
+        - mise_tools
       become: true
       become_user: "{{ remote_work_user }}"
       ansible.builtin.shell:
@@ -158,6 +160,8 @@
       when: remote_work_install_mise
 
     - name: Link Mise Into System Path
+      tags:
+        - mise_tools
       become: true
       ansible.builtin.file:
         src: "{{ remote_work_mise_bin }}"
@@ -165,6 +169,68 @@
         state: link
         force: true
       when: remote_work_install_mise
+
+    - name: Check Shared Mise CLI Tools
+      tags:
+        - mise_tools
+      become: true
+      become_user: "{{ remote_work_user }}"
+      ansible.builtin.shell:
+        cmd: >-
+          test
+          "$( {{ remote_work_mise_bin }} current {{ item.split('@') | first }} 2>/dev/null )"
+          =
+          "$( {{ remote_work_mise_bin }} latest {{ item }} )"
+        executable: /bin/bash
+      loop: "{{ remote_work_mise_tools }}"
+      register: remote_work_mise_tools_check
+      changed_when: false
+      failed_when: remote_work_mise_tools_check.rc not in [0, 1]
+      check_mode: false
+      environment:
+        HOME: "{{ remote_work_home }}"
+        MISE_YES: "1"
+      when:
+        - remote_work_install_mise
+        - remote_work_mise_tools | length > 0
+
+    - name: Install Shared Mise CLI Tools
+      tags:
+        - mise_tools
+      become: true
+      become_user: "{{ remote_work_user }}"
+      ansible.builtin.command:
+        cmd: "{{ remote_work_mise_bin }} use --global {{ item.item }}"
+      loop: "{{ remote_work_mise_tools_check.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      changed_when: true
+      environment:
+        HOME: "{{ remote_work_home }}"
+        MISE_YES: "1"
+      when:
+        - remote_work_install_mise
+        - remote_work_mise_tools | length > 0
+        - item.rc == 1
+
+    - name: Link Shared Mise CLI Tools Into System Path
+      tags:
+        - mise_tools
+      become: true
+      ansible.builtin.file:
+        src: "{{ remote_work_home }}/.local/share/mise/shims/{{ remote_work_mise_tool_bin }}"
+        dest: "/usr/local/bin/{{ remote_work_mise_tool_bin }}"
+        state: link
+        force: true
+      loop: "{{ remote_work_mise_tools }}"
+      vars:
+        remote_work_mise_tool_name: "{{ item.split('@') | first }}"
+        remote_work_mise_tool_bin: >-
+          {{ remote_work_mise_tool_bin_map[remote_work_mise_tool_name]
+             | default(remote_work_mise_tool_name) }}
+      when:
+        - remote_work_install_mise
+        - remote_work_mise_tools | length > 0
 
     - name: Check Mise Go Toolchain
       tags:
